@@ -1,5 +1,6 @@
 import express, { Express, Request, Response } from "express";
 import dotenv from "dotenv";
+import { deck, getStartingCards } from "./src/cards";
 
 dotenv.config();
 
@@ -11,7 +12,7 @@ app.get("/", (req: Request, res: Response) => {
 });
 
 app.get("/game", (req: Request, res: Response) => {
-  res.send("Welcome to the game");
+  res.send(getStartingCards(deck));
 });
 
 app.listen(port, () => {
