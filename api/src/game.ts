@@ -10,12 +10,14 @@ interface GameState {
   player1: {
     hand: (Card | Joker)[];
     melds: (Card | Joker)[][];
+    red_threes: (Card | Joker)[];
     score: number;
     name: string;
   };
   player2: {
     hand: (Card | Joker)[];
     melds: (Card | Joker)[][];
+    red_threes: (Card | Joker)[];
     score: number;
     name: string;
   };
@@ -40,8 +42,9 @@ const checkForRedThreeInPlayerHand = (
   );
 
   if (redThrees.length > 0) {
-    console.log("Red three found in player hand");
-    gameState[player].melds = gameState[player].melds.concat(redThrees);
+    console.log(`Red three found in ${player} hand`);
+    gameState[player].red_threes =
+      gameState[player].red_threes.concat(redThrees);
     gameState[player].hand = remainingCards;
   }
 };
@@ -208,6 +211,7 @@ const getRoundWinner = (
 const calculatePlayerScore = (player: {
   hand: (Card | Joker)[];
   melds: (Card | Joker)[][];
+  red_threes: (Card | Joker)[];
   name: string;
 }): { name: string; score: number } => {
   // Calculate points from melds
@@ -220,7 +224,7 @@ const calculatePlayerScore = (player: {
   );
 
   // Subtract hand points from meld points to get the final score
-  const score = meldPoints - handPoints;
+  const score = meldPoints - handPoints + player.red_threes.length * 100;
 
   return { name: player.name, score };
 };
@@ -241,30 +245,32 @@ const playRound = async (gameState: GameState): Promise<void> => {
 
     // Prompt the player to choose cards to meld
     console.log(
-      `${currentPlayer.name}, your hand is: ${currentPlayer.hand
+      `${currentPlayer.name}, your hand is:\n${currentPlayer.hand
         .map((card, idx) => `${idx}. ${card.rank} of ${card.suit}\n`)
         .join("")}`
     );
     const answer = await new Promise((resolve) => {
       rl.question(
-        'Enter the ranks of the cards you want to meld, separated by commas (or "skip" to skip): ',
+        'Enter the ids of the cards you want to meld, separated by commas (or "skip" to skip): ',
         resolve
       );
     });
 
     if (answer !== "skip") {
-      const ranksToMeld = (answer as string)
+      const idsToMeld = (answer as string)
         .split(",")
         .map((rank) => rank.trim());
-      const cardsToMeld = currentPlayer.hand.filter((card) =>
-        ranksToMeld.includes(card.rank)
+      const cardsToMeld = idsToMeld.map(
+        (id) => currentPlayer.hand[parseInt(id)]
       );
       if (cardsToMeld.length >= 3) {
+        // Check if it's the first meld
+
         meldCards(currentPlayer.hand, currentPlayer.melds, cardsToMeld);
         console.log(
           `${currentPlayer.name} melded ${
             cardsToMeld.length
-          } cards of ranks ${ranksToMeld.join(", ")}`
+          } cards of ranks ${idsToMeld.join(", ")}`
         );
       } else {
         console.log(
@@ -272,7 +278,11 @@ const playRound = async (gameState: GameState): Promise<void> => {
         );
       }
     }
-
+    console.log(
+      `${currentPlayer.name}, your hand is: ${currentPlayer.hand
+        .map((card, idx) => `${idx}. ${card.rank} of ${card.suit}\n`)
+        .join("")}`
+    );
     // Prompt the player to choose a card to discard
     const discardAnswer = await new Promise((resolve) => {
       rl.question("Enter the index of the card you want to discard: ", resolve);
@@ -336,12 +346,14 @@ async function playGame() {
       name: "Player 1",
       hand: [],
       melds: [],
+      red_threes: [],
       score: 0,
     },
     player2: {
       name: "Player 2",
       hand: [],
       melds: [],
+      red_threes: [],
       score: 0,
     },
     stock: {
