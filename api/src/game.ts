@@ -12,12 +12,8 @@ interface Player {
 interface GameState {
   player1: Player;
   player2: Player;
-  discardPile: {
-    cards: (Card | Joker)[];
-  };
-  stock: {
-    cards: (Card | Joker)[];
-  };
+  discardPile: (Card | Joker)[];
+  stock: (Card | Joker)[];
 }
 
 const rl = readline.createInterface({
@@ -34,7 +30,7 @@ const startRound = (gameState: GameState): void => {
   dealCards(gameState, startingCards);
 
   // Initialize the discard pile
-  gameState.discardPile.cards = [];
+  gameState.discardPile = [];
   revealFirstCard(gameState);
 
   // Check for red threes in each player's hand
@@ -61,25 +57,24 @@ const dealCards = (gameState: GameState, startingCards: (Card | Joker)[]) => {
   gameState.player1.hand = startingCards.slice(0, 15);
   gameState.player2.hand = startingCards.slice(15, 30);
 
-  gameState.stock.cards = startingCards.slice(30);
+  gameState.stock = startingCards.slice(30);
 };
 
 const revealFirstCard = (gameState: GameState) => {
   while (
-    gameState.discardPile.cards[
-      gameState.discardPile.cards.length - 1
-    ]?.rank.match(/(JOKER|2)/) ||
-    (gameState.discardPile.cards[
-      gameState.discardPile.cards.length - 1
-    ]?.suit.match(/(HEART|DIAMOND)/) &&
-      gameState.discardPile.cards[gameState.discardPile.cards.length - 1]
-        .rank === "3")
+    gameState.discardPile[gameState.discardPile.length - 1]?.rank.match(
+      /(JOKER|2)/
+    ) ||
+    (gameState.discardPile[gameState.discardPile.length - 1]?.suit.match(
+      /(HEART|DIAMOND)/
+    ) &&
+      gameState.discardPile[gameState.discardPile.length - 1].rank === "3")
   ) {
-    const card = gameState.stock.cards.shift();
+    const card = gameState.stock.shift();
     if (card === undefined) {
       throw new Error("Stock is empty");
     }
-    gameState.discardPile.cards.push(card);
+    gameState.discardPile.push(card);
   }
 };
 
@@ -200,20 +195,20 @@ const pickUpPile = (
     throw new Error("The player cannot pick up the pile");
   }
 
+  // TODO: Wait for player to meld top card with cards from his hand
+
   // Add the discard pile to the player's hand and clear the discard pile
   playerHand.push(...discardPile);
   discardPile.length = 0;
 };
 
-const isRoundFinished = (players: { hand: (Card | Joker)[] }[]): boolean => {
-  return players.some((player) => player.hand.length === 0);
-};
-
-const getRoundWinner = (
-  players: { hand: (Card | Joker)[]; name: string }[]
-): string => {
-  const winner = players.find((player) => player.hand.length === 0);
-  return winner ? winner.name : "No winner";
+const isRoundFinished = (
+  players: Player[],
+  stack: (Card | Joker)[]
+): boolean => {
+  return (
+    players.some((player) => player.hand.length === 0) || stack.length === 0
+  );
 };
 
 const calculatePlayerScore = (player: {
@@ -246,7 +241,7 @@ const playRound = async (gameState: GameState): Promise<void> => {
     console.log(`${currentPlayer.name}'s turn`);
 
     // Draw a card
-    const drawnCard = drawCard(gameState.stock.cards, currentPlayer.hand);
+    const drawnCard = drawCard(gameState.stock, currentPlayer.hand);
     console.log(
       `${currentPlayer.name} drew a card: ${drawnCard?.rank} of ${drawnCard?.suit}`
     );
@@ -292,7 +287,7 @@ const playRound = async (gameState: GameState): Promise<void> => {
       if (discardAnswerString) {
         const disacrdedCard = discardCard(
           currentPlayer.hand,
-          gameState.discardPile.cards,
+          gameState.discardPile,
           parseInt(discardAnswerString)
         );
         console.log(
@@ -306,7 +301,10 @@ const playRound = async (gameState: GameState): Promise<void> => {
     }
 
     // Check if the round is finished
-    roundFinished = isRoundFinished([gameState.player1, gameState.player2]);
+    roundFinished = isRoundFinished(
+      [gameState.player1, gameState.player2],
+      gameState.stock
+    );
     if (roundFinished) {
       console.log(
         `${currentPlayer.name} has no cards left. The round is finished.`
@@ -371,8 +369,8 @@ function resetRound(gameState: GameState) {
   gameState.player1.melds = [];
   gameState.player2.hand = [];
   gameState.player2.melds = [];
-  gameState.stock.cards = [];
-  gameState.discardPile.cards = [];
+  gameState.stock = [];
+  gameState.discardPile = [];
 }
 async function playGame() {
   // Initialize game state
@@ -391,12 +389,8 @@ async function playGame() {
       red_threes: [],
       score: 0,
     },
-    stock: {
-      cards: [],
-    },
-    discardPile: {
-      cards: [],
-    },
+    stock: [],
+    discardPile: [],
   };
 
   // Start the round
