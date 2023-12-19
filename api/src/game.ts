@@ -1,26 +1,17 @@
-import { Card, Joker, deck, getCardPoints, getStartingCards } from "./cards";
 import readline from "readline";
+import { Card, Joker, deck, getCardPoints, getStartingCards } from "./cards";
 
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout,
-});
+interface Player {
+  hand: (Card | Joker)[];
+  melds: (Card | Joker)[][];
+  red_threes: (Card | Joker)[];
+  score: number;
+  name: string;
+}
 
 interface GameState {
-  player1: {
-    hand: (Card | Joker)[];
-    melds: (Card | Joker)[][];
-    red_threes: (Card | Joker)[];
-    score: number;
-    name: string;
-  };
-  player2: {
-    hand: (Card | Joker)[];
-    melds: (Card | Joker)[][];
-    red_threes: (Card | Joker)[];
-    score: number;
-    name: string;
-  };
+  player1: Player;
+  player2: Player;
   discardPile: {
     cards: (Card | Joker)[];
   };
@@ -29,35 +20,51 @@ interface GameState {
   };
 }
 
-const checkForRedThreeInPlayerHand = (
-  gameState: GameState,
-  player: "player1" | "player2"
-) => {
-  const redThrees = gameState[player].hand.filter(
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout,
+});
+
+const MIN_CARDS_FOR_MELD = 3;
+
+const startRound = (gameState: GameState): void => {
+  // Get the starting cards
+  const startingCards = getStartingCards(deck);
+  // Deal cards
+  dealCards(gameState, startingCards);
+
+  // Initialize the discard pile
+  gameState.discardPile.cards = [];
+  revealFirstCard(gameState);
+
+  // Check for red threes in each player's hand
+  checkForRedThreeInPlayerHand(gameState.player1);
+  checkForRedThreeInPlayerHand(gameState.player2);
+};
+
+const checkForRedThreeInPlayerHand = (player: Player) => {
+  const redThrees = player.hand.filter(
     (card) => card.rank === "3" && card.suit.match(/(HEART|DIAMOND)/)
   );
-  const remainingCards = gameState[player].hand.filter(
+  const remainingCards = player.hand.filter(
     (card) => card.rank !== "3" || !card.suit.match(/(HEART|DIAMOND)/)
   );
 
   if (redThrees.length > 0) {
     console.log(`Red three found in ${player} hand`);
-    gameState[player].red_threes =
-      gameState[player].red_threes.concat(redThrees);
-    gameState[player].hand = remainingCards;
+    player.red_threes = player.red_threes.concat(redThrees);
+    player.hand = remainingCards;
   }
 };
 
-const startRound = (gameState: GameState): void => {
-  // Get the starting cards
-  const startingCards = getStartingCards(deck);
-  // Deal cards to the players
+const dealCards = (gameState: GameState, startingCards: (Card | Joker)[]) => {
   gameState.player1.hand = startingCards.slice(0, 15);
   gameState.player2.hand = startingCards.slice(15, 30);
 
   gameState.stock.cards = startingCards.slice(30);
-  // Initialize the discard pile
-  gameState.discardPile.cards = [];
+};
+
+const revealFirstCard = (gameState: GameState) => {
   while (
     gameState.discardPile.cards[
       gameState.discardPile.cards.length - 1
@@ -74,10 +81,6 @@ const startRound = (gameState: GameState): void => {
     }
     gameState.discardPile.cards.push(card);
   }
-
-  // Check for red threes in each player's hand
-  checkForRedThreeInPlayerHand(gameState, "player1");
-  checkForRedThreeInPlayerHand(gameState, "player2");
 };
 
 const drawCard = (
@@ -172,7 +175,13 @@ const canPickUpPile = (
   playerHand: (Card | Joker)[],
   topCard: Card | Joker
 ): boolean => {
-  // TODO: Implement this
+  const topCardRank = topCard.rank;
+  const playerHandHasCard = playerHand.filter(
+    (card) => card.rank === topCardRank
+  ).length;
+  if (playerHandHasCard > 1) {
+    return true;
+  }
   return false;
 };
 
@@ -251,43 +260,18 @@ const playRound = async (gameState: GameState): Promise<void> => {
       );
       const answer = await new Promise((resolve) => {
         rl.question(
-          'Enter the ids of the cards you want to meld, separated by commas (or "skip" to skip): ',
+          'Enter the ids of the cards you want to meld (different melds should be separated by space), separated by commas (or "skip" to skip): ',
           resolve
         );
       });
 
       if (answer !== "skip") {
         const idsToMeld = (answer as string)
-          .split(",")
-          .map((rank) => rank.trim());
-        const cardsToMeld = idsToMeld.map(
-          (id) => currentPlayer.hand[parseInt(id)]
-        );
-        if (cardsToMeld.length >= 3) {
-          // Check if it's the first meld
-          if (currentPlayer.melds.length === 0) {
-            // Check if the first meld is above the minimum
-            if (!isFirstMeldAboveMinimum(currentPlayer.score, cardsToMeld)) {
-              const minPoints = getMinimumFirstMeldPoints(currentPlayer.score);
-              console.log(
-                `Your first meld must be at least ${minPoints} points. Your turn is skipped.`
-              );
-              continue;
-            }
-          }
-
-          meldCards(currentPlayer.hand, currentPlayer.melds, cardsToMeld);
-          console.log(
-            `${currentPlayer.name} melded ${
-              cardsToMeld.length
-            } cards of ranks ${idsToMeld.join(", ")}`
-          );
+          .split(" ")
+          .map((meld) => meld.split(",").map((rank) => rank.trim()));
+        console.log(idsToMeld);
+        if (formatCardsForMelding(currentPlayer, idsToMeld)) {
           break;
-        } else {
-          console.log(
-            "You need at least 3 cards of the same rank to meld. Your turn is skipped."
-          );
-          continue;
         }
       } else break;
     }
@@ -334,7 +318,38 @@ const playRound = async (gameState: GameState): Promise<void> => {
   }
   rl.close();
 };
+function formatCardsForMelding(currentPlayer: Player, idsToMeld: string[][]) {
+  let error = true;
+  idsToMeld.forEach((meld) => {
+    const cardsToMeld = meld.map((id) => currentPlayer.hand[parseInt(id)]);
+    if (cardsToMeld.length >= MIN_CARDS_FOR_MELD) {
+      // Check if it's the first meld
+      if (currentPlayer.melds.length === 0) {
+        // Check if the first meld is above the minimum
+        if (!isFirstMeldAboveMinimum(currentPlayer.score, cardsToMeld)) {
+          const minPoints = getMinimumFirstMeldPoints(currentPlayer.score);
+          console.log(
+            `Your first meld must be at least ${minPoints} points. Your turn is skipped.`
+          );
+          error = false;
+        }
+      }
 
+      meldCards(currentPlayer.hand, currentPlayer.melds, cardsToMeld);
+      console.log(
+        `${currentPlayer.name} melded ${
+          cardsToMeld.length
+        } cards of ranks ${idsToMeld.join(", ")}`
+      );
+    } else {
+      console.log(
+        "You need at least 3 cards of the same rank to meld. Your turn is skipped."
+      );
+      error = false;
+    }
+  });
+  return error;
+}
 function discardCard(
   hand: (Card | Joker)[],
   cards: (Card | Joker)[],
