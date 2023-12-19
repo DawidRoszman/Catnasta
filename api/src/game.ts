@@ -33,7 +33,6 @@ const checkForRedThreeInPlayerHand = (
   gameState: GameState,
   player: "player1" | "player2"
 ) => {
-  const startingCards = getStartingCards(deck);
   const redThrees = gameState[player].hand.filter(
     (card) => card.rank === "3" && card.suit.match(/(HEART|DIAMOND)/)
   );
@@ -243,62 +242,83 @@ const playRound = async (gameState: GameState): Promise<void> => {
       `${currentPlayer.name} drew a card: ${drawnCard?.rank} of ${drawnCard?.suit}`
     );
 
-    // Prompt the player to choose cards to meld
-    console.log(
-      `${currentPlayer.name}, your hand is:\n${currentPlayer.hand
-        .map((card, idx) => `${idx}. ${card.rank} of ${card.suit}\n`)
-        .join("")}`
-    );
-    const answer = await new Promise((resolve) => {
-      rl.question(
-        'Enter the ids of the cards you want to meld, separated by commas (or "skip" to skip): ',
-        resolve
+    while (true) {
+      // Prompt the player to choose cards to meld
+      console.log(
+        `${currentPlayer.name}, your hand is:\n${currentPlayer.hand
+          .map((card, idx) => `${idx}. ${card.rank} of ${card.suit}\n`)
+          .join("")}`
       );
-    });
-
-    if (answer !== "skip") {
-      const idsToMeld = (answer as string)
-        .split(",")
-        .map((rank) => rank.trim());
-      const cardsToMeld = idsToMeld.map(
-        (id) => currentPlayer.hand[parseInt(id)]
-      );
-      if (cardsToMeld.length >= 3) {
-        // Check if it's the first meld
-
-        meldCards(currentPlayer.hand, currentPlayer.melds, cardsToMeld);
-        console.log(
-          `${currentPlayer.name} melded ${
-            cardsToMeld.length
-          } cards of ranks ${idsToMeld.join(", ")}`
+      const answer = await new Promise((resolve) => {
+        rl.question(
+          'Enter the ids of the cards you want to meld, separated by commas (or "skip" to skip): ',
+          resolve
         );
-      } else {
-        console.log(
-          "You need at least 3 cards of the same rank to meld. Your turn is skipped."
+      });
+
+      if (answer !== "skip") {
+        const idsToMeld = (answer as string)
+          .split(",")
+          .map((rank) => rank.trim());
+        const cardsToMeld = idsToMeld.map(
+          (id) => currentPlayer.hand[parseInt(id)]
         );
-      }
+        if (cardsToMeld.length >= 3) {
+          // Check if it's the first meld
+          if (currentPlayer.melds.length === 0) {
+            // Check if the first meld is above the minimum
+            if (!isFirstMeldAboveMinimum(currentPlayer.score, cardsToMeld)) {
+              const minPoints = getMinimumFirstMeldPoints(currentPlayer.score);
+              console.log(
+                `Your first meld must be at least ${minPoints} points. Your turn is skipped.`
+              );
+              continue;
+            }
+          }
+
+          meldCards(currentPlayer.hand, currentPlayer.melds, cardsToMeld);
+          console.log(
+            `${currentPlayer.name} melded ${
+              cardsToMeld.length
+            } cards of ranks ${idsToMeld.join(", ")}`
+          );
+          break;
+        } else {
+          console.log(
+            "You need at least 3 cards of the same rank to meld. Your turn is skipped."
+          );
+          continue;
+        }
+      } else break;
     }
     console.log(
       `${currentPlayer.name}, your hand is: ${currentPlayer.hand
         .map((card, idx) => `${idx}. ${card.rank} of ${card.suit}\n`)
         .join("")}`
     );
-    // Prompt the player to choose a card to discard
-    const discardAnswer = await new Promise((resolve) => {
-      rl.question("Enter the index of the card you want to discard: ", resolve);
-    });
-    const discardAnswerString = discardAnswer as string;
-    if (discardAnswerString) {
-      const disacrdedCard = discardCard(
-        currentPlayer.hand,
-        gameState.discardPile.cards,
-        parseInt(discardAnswerString)
-      );
-      console.log(
-        `${currentPlayer.name} discarded a ${disacrdedCard.rank} of ${disacrdedCard.suit}`
-      );
-    } else {
-      console.log("Invalid card. Your turn is skipped.");
+    while (true) {
+      // Prompt the player to choose a card to discard
+      const discardAnswer = await new Promise((resolve) => {
+        rl.question(
+          "Enter the index of the card you want to discard: ",
+          resolve
+        );
+      });
+      const discardAnswerString = discardAnswer as string;
+      if (discardAnswerString) {
+        const disacrdedCard = discardCard(
+          currentPlayer.hand,
+          gameState.discardPile.cards,
+          parseInt(discardAnswerString)
+        );
+        console.log(
+          `${currentPlayer.name} discarded a ${disacrdedCard.rank} of ${disacrdedCard.suit}`
+        );
+        break;
+      } else {
+        console.log("Invalid card. Your turn is skipped.");
+        continue;
+      }
     }
 
     // Check if the round is finished
@@ -307,14 +327,14 @@ const playRound = async (gameState: GameState): Promise<void> => {
       console.log(
         `${currentPlayer.name} has no cards left. The round is finished.`
       );
+
+      // Switch players
+      [currentPlayer, otherPlayer] = [otherPlayer, currentPlayer];
     }
-
-    // Switch players
-    [currentPlayer, otherPlayer] = [otherPlayer, currentPlayer];
   }
-
   rl.close();
 };
+
 function discardCard(
   hand: (Card | Joker)[],
   cards: (Card | Joker)[],
