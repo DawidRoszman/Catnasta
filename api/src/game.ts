@@ -1,7 +1,7 @@
 import readline from "readline";
 import { Card, Joker, deck, getCardPoints, getStartingCards } from "./cards";
 
-interface Player {
+export interface Player {
   hand: (Card | Joker)[];
   melds: (Card | Joker)[][];
   red_threes: (Card | Joker)[];
@@ -9,7 +9,7 @@ interface Player {
   name: string;
 }
 
-interface GameState {
+export interface GameState {
   player1: Player;
   player2: Player;
   discardPile: (Card | Joker)[];
@@ -23,7 +23,7 @@ const rl = readline.createInterface({
 
 const MIN_CARDS_FOR_MELD = 3;
 
-const startRound = (gameState: GameState): void => {
+export const startRound = (gameState: GameState): void => {
   // Get the starting cards
   const startingCards = getStartingCards(deck);
   // Deal cards
@@ -35,15 +35,25 @@ const startRound = (gameState: GameState): void => {
 
   // Check for red threes in each player's hand
   checkForRedThreeInPlayerHand(gameState.player1);
+  if (gameState.player1.red_threes.length > 0) {
+    gameState.player1.red_threes.forEach((_) => {
+      drawCard(gameState.stock, gameState.player1.hand);
+    });
+  }
   checkForRedThreeInPlayerHand(gameState.player2);
+  if (gameState.player2.red_threes.length > 0) {
+    gameState.player2.red_threes.forEach((_) => {
+      drawCard(gameState.stock, gameState.player2.hand);
+    });
+  }
 };
 
-const checkForRedThreeInPlayerHand = (player: Player) => {
+export const checkForRedThreeInPlayerHand = (player: Player) => {
   const redThrees = player.hand.filter(
-    (card) => card.rank === "3" && card.suit.match(/(HEART|DIAMOND)/),
+    (card) => card.rank === "3" && card.suit.match(/(HEART|DIAMOND)/)
   );
   const remainingCards = player.hand.filter(
-    (card) => card.rank !== "3" || !card.suit.match(/(HEART|DIAMOND)/),
+    (card) => card.rank !== "3" || !card.suit.match(/(HEART|DIAMOND)/)
   );
 
   if (redThrees.length > 0) {
@@ -53,20 +63,27 @@ const checkForRedThreeInPlayerHand = (player: Player) => {
   }
 };
 
-const dealCards = (gameState: GameState, startingCards: (Card | Joker)[]) => {
+export const dealCards = (
+  gameState: GameState,
+  startingCards: (Card | Joker)[]
+) => {
   gameState.player1.hand = startingCards.slice(0, 15);
   gameState.player2.hand = startingCards.slice(15, 30);
 
   gameState.stock = startingCards.slice(30);
 };
 
-const revealFirstCard = (gameState: GameState) => {
+export const revealFirstCard = (gameState: GameState) => {
+  if (gameState.stock.length === 0) {
+    throw new Error("Stock is empty");
+  }
   while (
+    gameState.discardPile.length === 0 ||
     gameState.discardPile[gameState.discardPile.length - 1]?.rank.match(
-      /(JOKER|2)/,
+      /(JOKER|2)/
     ) ||
     (gameState.discardPile[gameState.discardPile.length - 1]?.suit.match(
-      /(HEART|DIAMOND)/,
+      /(HEART|DIAMOND)/
     ) &&
       gameState.discardPile[gameState.discardPile.length - 1].rank === "3")
   ) {
@@ -78,9 +95,9 @@ const revealFirstCard = (gameState: GameState) => {
   }
 };
 
-const drawCard = (
+export const drawCard = (
   cards: (Card | Joker)[],
-  player: (Card | Joker)[],
+  player: (Card | Joker)[]
 ): Card | Joker | undefined => {
   if (cards.length === 0) {
     console.log("Stock is empty");
@@ -94,39 +111,54 @@ const drawCard = (
   return card;
 };
 
-const meldCards = (
+export const meldCards = (
   playerHand: (Card | Joker)[],
   playerMelds: (Card | Joker)[][],
-  cardsToMeld: (Card | Joker)[],
+  cardsToMeld: (Card | Joker)[]
 ): void => {
   // Check if there are at least three cards to meld
-  if (cardsToMeld.length < 3) {
+  if (cardsToMeld.length < MIN_CARDS_FOR_MELD) {
     throw new Error("At least three cards are required to meld");
   }
 
   // Check if there are at least two natural cards and at most three wild cards
   const wildCards = cardsToMeld.filter(
-    (card) => card.rank === "2" || card.rank === "JOKER",
+    (card) => card.rank === "2" || card.rank === "JOKER"
   );
+  //Check for wild canasta
+  if (wildCards.length === cardsToMeld.length) {
+    console.log("Wild canasta");
+    playMeld(cardsToMeld, playerHand, playerMelds);
+    return;
+  }
+
   if (wildCards.length > 3 || wildCards.length > cardsToMeld.length - 2) {
     throw new Error(
-      "A meld must have at least two natural cards and can have up to three wild cards",
+      "A meld must have at least two natural cards and can have up to three wild cards"
     );
   }
 
   // Check if all natural cards to meld have the same rank
   const naturalCards = cardsToMeld.filter(
-    (card) => card.rank !== "2" && card.rank !== "JOKER",
+    (card) => card.rank !== "2" && card.rank !== "JOKER"
   );
   const rank = naturalCards[0]?.rank;
   if (rank && !naturalCards.every((card) => card.rank === rank)) {
     throw new Error("All natural cards in a meld must have the same rank");
   }
 
+  playMeld(cardsToMeld, playerHand, playerMelds);
+};
+
+export const playMeld = (
+  cardsToMeld: (Card | Joker)[],
+  playerHand: (Card | Joker)[],
+  playerMelds: (Card | Joker)[][]
+) => {
   // Remove the cards to meld from the player's hand
   cardsToMeld.forEach((cardToMeld) => {
     const index = playerHand.findIndex(
-      (card) => card.rank === cardToMeld.rank && card.suit === cardToMeld.suit,
+      (card) => card.rank === cardToMeld.rank && card.suit === cardToMeld.suit
     );
     if (index === -1) {
       throw new Error("Card to meld not found in player's hand");
@@ -138,11 +170,11 @@ const meldCards = (
   playerMelds.push(cardsToMeld);
 };
 
-const getMeldPoints = (meld: (Card | Joker)[]): number => {
+export const getMeldPoints = (meld: (Card | Joker)[]): number => {
   return meld.reduce((sum, card) => sum + getCardPoints(card), 0);
 };
 
-const getMinimumFirstMeldPoints = (score: number): number => {
+export const getMinimumFirstMeldPoints = (score: number): number => {
   if (score < 0) {
     return 15;
   } else if (score < 1500) {
@@ -154,25 +186,25 @@ const getMinimumFirstMeldPoints = (score: number): number => {
   }
 };
 
-const isFirstMeldAboveMinimum = (
+export const isFirstMeldAboveMinimum = (
   playerScore: number,
-  meld: (Card | Joker)[],
+  meld: (Card | Joker)[]
 ): boolean => {
   const meldPoints = getMeldPoints(meld);
   const minimumPoints = getMinimumFirstMeldPoints(playerScore);
   return meldPoints >= minimumPoints;
 };
-const getTotalMeldPoints = (melds: (Card | Joker)[][]): number => {
+export const getTotalMeldPoints = (melds: (Card | Joker)[][]): number => {
   return melds.reduce((sum, meld) => sum + getMeldPoints(meld), 0);
 };
 
-const canPickUpPile = (
+export const canPickUpPile = (
   playerHand: (Card | Joker)[],
-  topCard: Card | Joker,
+  topCard: Card | Joker
 ): boolean => {
   const topCardRank = topCard.rank;
   const playerHandHasCard = playerHand.filter(
-    (card) => card.rank === topCardRank,
+    (card) => card.rank === topCardRank
   ).length;
   if (playerHandHasCard > 1) {
     return true;
@@ -180,9 +212,9 @@ const canPickUpPile = (
   return false;
 };
 
-const pickUpPile = (
+export const pickUpPile = (
   discardPile: (Card | Joker)[],
-  playerHand: (Card | Joker)[],
+  playerHand: (Card | Joker)[]
 ): void => {
   // Check if the discard pile is empty
   if (discardPile.length === 0) {
@@ -202,16 +234,16 @@ const pickUpPile = (
   discardPile.length = 0;
 };
 
-const isRoundFinished = (
+export const isRoundFinished = (
   players: Player[],
-  stack: (Card | Joker)[],
+  stack: (Card | Joker)[]
 ): boolean => {
   return (
     players.some((player) => player.hand.length === 0) || stack.length === 0
   );
 };
 
-const calculatePlayerScore = (player: {
+export const calculatePlayerScore = (player: {
   hand: (Card | Joker)[];
   melds: (Card | Joker)[][];
   red_threes: (Card | Joker)[];
@@ -223,7 +255,7 @@ const calculatePlayerScore = (player: {
   // Calculate points from cards left in hand
   const handPoints = player.hand.reduce(
     (sum, card) => sum + getCardPoints(card),
-    0,
+    0
   );
 
   // Subtract hand points from meld points to get the final score
@@ -232,7 +264,7 @@ const calculatePlayerScore = (player: {
   return { name: player.name, score };
 };
 
-const playRound = async (gameState: GameState): Promise<void> => {
+export const playRound = async (gameState: GameState): Promise<void> => {
   let currentPlayer = gameState.player1;
   let otherPlayer = gameState.player2;
   let roundFinished = false;
@@ -243,7 +275,7 @@ const playRound = async (gameState: GameState): Promise<void> => {
     // Draw a card
     const drawnCard = drawCard(gameState.stock, currentPlayer.hand);
     console.log(
-      `${currentPlayer.name} drew a card: ${drawnCard?.rank} of ${drawnCard?.suit}`,
+      `${currentPlayer.name} drew a card: ${drawnCard?.rank} of ${drawnCard?.suit}`
     );
 
     while (true) {
@@ -251,12 +283,12 @@ const playRound = async (gameState: GameState): Promise<void> => {
       console.log(
         `${currentPlayer.name}, your hand is:\n${currentPlayer.hand
           .map((card, idx) => `${idx}. ${card.rank} of ${card.suit}\n`)
-          .join("")}`,
+          .join("")}`
       );
       const answer = await new Promise((resolve) => {
         rl.question(
           'Enter the ids of the cards you want to meld (different melds should be separated by space), separated by commas (or "skip" to skip): ',
-          resolve,
+          resolve
         );
       });
 
@@ -273,14 +305,14 @@ const playRound = async (gameState: GameState): Promise<void> => {
     console.log(
       `${currentPlayer.name}, your hand is: ${currentPlayer.hand
         .map((card, idx) => `${idx}. ${card.rank} of ${card.suit}\n`)
-        .join("")}`,
+        .join("")}`
     );
     while (true) {
       // Prompt the player to choose a card to discard
       const discardAnswer = await new Promise((resolve) => {
         rl.question(
           "Enter the index of the card you want to discard: ",
-          resolve,
+          resolve
         );
       });
       const discardAnswerString = discardAnswer as string;
@@ -288,10 +320,10 @@ const playRound = async (gameState: GameState): Promise<void> => {
         const disacrdedCard = discardCard(
           currentPlayer.hand,
           gameState.discardPile,
-          parseInt(discardAnswerString),
+          parseInt(discardAnswerString)
         );
         console.log(
-          `${currentPlayer.name} discarded a ${disacrdedCard.rank} of ${disacrdedCard.suit}`,
+          `${currentPlayer.name} discarded a ${disacrdedCard.rank} of ${disacrdedCard.suit}`
         );
         break;
       } else {
@@ -303,11 +335,11 @@ const playRound = async (gameState: GameState): Promise<void> => {
     // Check if the round is finished
     roundFinished = isRoundFinished(
       [gameState.player1, gameState.player2],
-      gameState.stock,
+      gameState.stock
     );
     if (roundFinished) {
       console.log(
-        `${currentPlayer.name} has no cards left. The round is finished.`,
+        `${currentPlayer.name} has no cards left. The round is finished.`
       );
 
       // Switch players
@@ -318,7 +350,7 @@ const playRound = async (gameState: GameState): Promise<void> => {
 };
 function formatCardsForMelding(
   currentPlayer: Player,
-  cardIdsToBeMelded: string[][],
+  cardIdsToBeMelded: string[][]
 ) {
   let error = true;
   cardIdsToBeMelded.forEach((meld) => {
@@ -330,7 +362,7 @@ function formatCardsForMelding(
         if (!isFirstMeldAboveMinimum(currentPlayer.score, cardsToMeld)) {
           const minPoints = getMinimumFirstMeldPoints(currentPlayer.score);
           console.log(
-            `Your first meld must be at least ${minPoints} points. Your turn is skipped.`,
+            `Your first meld must be at least ${minPoints} points. Your turn is skipped.`
           );
           error = false;
         }
@@ -340,21 +372,21 @@ function formatCardsForMelding(
       console.log(
         `${currentPlayer.name} melded ${
           cardsToMeld.length
-        } cards of ranks ${cardIdsToBeMelded.join(", ")}`,
+        } cards of ranks ${cardIdsToBeMelded.join(", ")}`
       );
     } else {
       console.log(
-        "You need at least 3 cards of the same rank to meld. Your turn is skipped.",
+        "You need at least 3 cards of the same rank to meld. Your turn is skipped."
       );
       error = false;
     }
   });
   return error;
 }
-function discardCard(
+export function discardCard(
   hand: (Card | Joker)[],
   cards: (Card | Joker)[],
-  cardToDiscard: number,
+  cardToDiscard: number
 ) {
   const cardAtIndex = hand[cardToDiscard];
 
@@ -367,7 +399,7 @@ function discardCard(
   }
   return cardAtIndex;
 }
-function resetRound(gameState: GameState) {
+export function resetRound(gameState: GameState) {
   gameState.player1.hand = [];
   gameState.player1.melds = [];
   gameState.player2.hand = [];
@@ -375,7 +407,7 @@ function resetRound(gameState: GameState) {
   gameState.stock = [];
   gameState.discardPile = [];
 }
-async function playGame() {
+export async function playGame() {
   // Initialize game state
   const gameState: GameState = {
     player1: {
@@ -407,7 +439,7 @@ async function playGame() {
     gameState.player1.score = calculatePlayerScore(gameState.player1).score;
 
     console.log(
-      `Scores after this round: Player 1 - ${gameState.player1.score}, Player 2 - ${gameState.player2.score}`,
+      `Scores after this round: Player 1 - ${gameState.player1.score}, Player 2 - ${gameState.player2.score}`
     );
 
     // Prepare for the next round
@@ -421,5 +453,3 @@ async function playGame() {
       : gameState.player2.name;
   console.log(`${winner} wins the game!`);
 }
-
-playGame();

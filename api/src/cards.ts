@@ -58,7 +58,7 @@ export const shuffle = (deck: (Card | Joker)[]) => {
 };
 
 export const getStartingCards = (deck: (Card | Joker)[]) => {
-  return [...shuffle(deck), ...shuffle(deck)];
+  return shuffle([...deck, ...deck]);
 };
 
 export const getCardPoints = (card: Card | Joker): number => {
