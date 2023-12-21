@@ -24,16 +24,13 @@ const rl = readline.createInterface({
 const MIN_CARDS_FOR_MELD = 3;
 
 export const startRound = (gameState: GameState): void => {
-  // Get the starting cards
   const startingCards = getStartingCards(deck);
-  // Deal cards
   dealCards(gameState, startingCards);
 
-  // Initialize the discard pile
   gameState.discardPile = [];
+
   revealFirstCard(gameState);
 
-  // Check for red threes in each player's hand
   checkForRedThreeInPlayerHand(gameState.player1);
   if (gameState.player1.red_threes.length > 0) {
     gameState.player1.red_threes.forEach((_) => {
@@ -217,12 +214,10 @@ export const pickUpPile = async (
   playerHand: (Card | Joker)[],
   playerMelds: (Card | Joker)[][],
 ) => {
-  // Check if the discard pile is empty
   if (discardPile.length === 0) {
     throw new Error("The discard pile is empty");
   }
 
-  // Check if the player can pick up the pile
   const topCard = discardPile[discardPile.length - 1];
   if (!canPickUpPile(playerHand, topCard)) {
     throw new Error("The player cannot pick up the pile");
@@ -231,7 +226,6 @@ export const pickUpPile = async (
 
   await meldWithTopCard(playerHand, topCard, playerMelds);
 
-  // Add the discard pile to the player's hand and clear the discard pile
   playerHand.push(...discardPile);
   discardPile.length = 0;
 };
@@ -282,17 +276,15 @@ export const calculatePlayerScore = (player: {
   red_threes: (Card | Joker)[];
   name: string;
 }): { name: string; score: number } => {
-  // Calculate points from melds
   const meldPoints = getTotalMeldPoints(player.melds);
 
-  // Calculate points from cards left in hand
   const handPoints = player.hand.reduce(
     (sum, card) => sum + getCardPoints(card),
     0,
   );
 
-  // Subtract hand points from meld points to get the final score
   const score = meldPoints - handPoints + player.red_threes.length * 100;
+  // TODO: Calculate bonuses
 
   return { name: player.name, score };
 };
@@ -308,7 +300,6 @@ export const playRound = async (gameState: GameState): Promise<void> => {
     const startingAction = await promptPlayerForStartingRoundAction();
 
     if (startingAction === "1") {
-      // Draw a card
       const drawnCard = drawCard(gameState.stock, currentPlayer.hand);
       console.log(
         `${currentPlayer.name} drew a card: ${drawnCard?.rank} of ${drawnCard?.suit}`,
@@ -316,8 +307,6 @@ export const playRound = async (gameState: GameState): Promise<void> => {
 
       promptPlayerToMeld(currentPlayer);
     } else {
-      // Pick up the discard pile
-      // Check if the player can pick up the pile
       if (canPickUpPile(currentPlayer.hand, gameState.discardPile[0])) {
         await pickUpPile(
           gameState.discardPile,
@@ -330,7 +319,6 @@ export const playRound = async (gameState: GameState): Promise<void> => {
     }
     promptPlayerToDiscard(currentPlayer, gameState.discardPile);
 
-    // Check if the round is finished
     roundFinished = isRoundFinished(
       [gameState.player1, gameState.player2],
       gameState.stock,
@@ -369,7 +357,6 @@ function printPlayerHand(currentPlayer: Player) {
 
 async function promptPlayerToMeld(currentPlayer: Player) {
   while (true) {
-    // Prompt the player to choose cards to meld
     printPlayerHand(currentPlayer);
     const answer = await new Promise((resolve) => {
       rl.question(
@@ -400,7 +387,6 @@ async function promptPlayerToDiscard(
 ) {
   printPlayerHand(currentPlayer);
   while (true) {
-    // Prompt the player to choose a card to discard
     const discardAnswer = await new Promise((resolve) => {
       rl.question("Enter the index of the card you want to discard: ", resolve);
     });
@@ -432,8 +418,6 @@ function formatCardsForMelding(
       console.log("At least three cards are required to meld");
       return undefined;
     }
-    // Check if it's the first meld
-    // Check if the first meld is above the minimum
     if (
       !isFirstMeldAboveMinimum(currentPlayer.score, cardsToMeld) &&
       currentPlayer.melds.length === 0
@@ -453,7 +437,6 @@ export function discardCard(
 ) {
   const cardAtIndex = hand[cardToDiscard];
 
-  // If the card is in the player's hand, remove it and add it to the discard pile
   if (cardToDiscard !== -1) {
     hand.splice(cardToDiscard, 1);
     cards.push(cardAtIndex);
@@ -471,7 +454,6 @@ export function resetRound(gameState: GameState) {
   gameState.discardPile = [];
 }
 export async function playGame() {
-  // Initialize game state
   const gameState: GameState = {
     player1: {
       name: "Player 1",
@@ -491,14 +473,11 @@ export async function playGame() {
     discardPile: [],
   };
 
-  // Start the round
   startRound(gameState);
 
-  // Play rounds until one player reaches 5000 points
   while (gameState.player1.score < 5000 && gameState.player2.score < 5000) {
     await playRound(gameState);
 
-    // Calculate scores
     gameState.player1.score = calculatePlayerScore(gameState.player1).score;
     gameState.player2.score = calculatePlayerScore(gameState.player2).score;
 
@@ -506,11 +485,9 @@ export async function playGame() {
       `Scores after this round: Player 1 - ${gameState.player1.score}, Player 2 - ${gameState.player2.score}`,
     );
 
-    // Prepare for the next round
     resetRound(gameState);
   }
 
-  // Determine the winner
   const winner =
     gameState.player1.score >= 5000
       ? gameState.player1.name
