@@ -7,6 +7,7 @@ import {
   checkForRedThreeInPlayerHand,
   startRound,
   dealCards,
+  drawCard,
 } from "../game";
 
 describe("Game", () => {
@@ -67,6 +68,16 @@ describe("Game", () => {
     dealCards(gameState, startingCards);
 
     expect(gameState.stock).toEqual(startingCards.slice(30));
+  });
+
+  test("should not put red three to player hand after drawing", () => {
+    const startingCards = [
+      { rank: "3", suit: "HEART" } as Card,
+      { rank: "3", suit: "DIAMOND" } as Card,
+      { rank: "4", suit: "CLUB" } as Card,
+    ];
+    const drawnCard = drawCard(startingCards, gameState.player1);
+    expect(drawnCard).toEqual({ rank: "4", suit: "CLUB" });
   });
 
   test("checkForRedThreeInPlayerHand", () => {

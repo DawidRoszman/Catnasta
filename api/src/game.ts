@@ -34,27 +34,27 @@ export const startRound = (gameState: GameState): void => {
   checkForRedThreeInPlayerHand(gameState.player1);
   if (gameState.player1.red_threes.length > 0) {
     gameState.player1.red_threes.forEach((_) => {
-      drawCard(gameState.stock, gameState.player1.hand);
+      drawCard(gameState.stock, gameState.player1);
     });
   }
   checkForRedThreeInPlayerHand(gameState.player2);
   if (gameState.player2.red_threes.length > 0) {
     gameState.player2.red_threes.forEach((_) => {
-      drawCard(gameState.stock, gameState.player2.hand);
+      drawCard(gameState.stock, gameState.player2);
     });
   }
 };
 
 export const checkForRedThreeInPlayerHand = (player: Player) => {
   const redThrees = player.hand.filter(
-    (card) => card.rank === "3" && card.suit.match(/(HEART|DIAMOND)/),
+    (card) => card.rank === "3" && card.suit.match(/(HEART|DIAMOND)/)
   );
   const remainingCards = player.hand.filter(
-    (card) => card.rank !== "3" || !card.suit.match(/(HEART|DIAMOND)/),
+    (card) => card.rank !== "3" || !card.suit.match(/(HEART|DIAMOND)/)
   );
 
   if (redThrees.length > 0) {
-    console.log(`Red three found in ${player} hand`);
+    console.log(`Red three found in ${player.name} hand`);
     player.red_threes = player.red_threes.concat(redThrees);
     player.hand = remainingCards;
   }
@@ -62,7 +62,7 @@ export const checkForRedThreeInPlayerHand = (player: Player) => {
 
 export const dealCards = (
   gameState: GameState,
-  startingCards: (Card | Joker)[],
+  startingCards: (Card | Joker)[]
 ) => {
   gameState.player1.hand = startingCards.slice(0, 15);
   gameState.player2.hand = startingCards.slice(15, 30);
@@ -77,10 +77,10 @@ export const revealFirstCard = (gameState: GameState) => {
   while (
     gameState.discardPile.length === 0 ||
     gameState.discardPile[gameState.discardPile.length - 1]?.rank.match(
-      /(JOKER|2)/,
+      /(JOKER|2)/
     ) ||
     (gameState.discardPile[gameState.discardPile.length - 1]?.suit.match(
-      /(HEART|DIAMOND)/,
+      /(HEART|DIAMOND)/
     ) &&
       gameState.discardPile[gameState.discardPile.length - 1].rank === "3")
   ) {
@@ -94,24 +94,32 @@ export const revealFirstCard = (gameState: GameState) => {
 
 export const drawCard = (
   cards: (Card | Joker)[],
-  player: (Card | Joker)[],
+  player: Player
 ): Card | Joker | undefined => {
   if (cards.length === 0) {
     console.log("Stock is empty");
     return;
   }
-  const card = cards.shift();
+  let card = cards.shift();
   if (card === undefined) {
     throw new Error("This should not happen");
   }
-  player.push(card);
+  //while card is a red three draw another and push three to player table
+  while (card.rank === "3" && card.suit.match(/(HEART|DIAMOND)/)) {
+    player.red_threes.push(card);
+    card = cards.shift();
+    if (card === undefined) {
+      throw new Error("This should not happen");
+    }
+  }
+  player.hand.push(card);
   return card;
 };
 
 export const meldCards = (
   playerHand: (Card | Joker)[],
   playerMelds: (Card | Joker)[][],
-  cardsToMeld: (Card | Joker)[],
+  cardsToMeld: (Card | Joker)[]
 ): void => {
   // Check if there are at least three cards to meld
   if (cardsToMeld.length < MIN_CARDS_FOR_MELD) {
@@ -120,7 +128,7 @@ export const meldCards = (
 
   // Check if there are at least two natural cards and at most three wild cards
   const wildCards = cardsToMeld.filter(
-    (card) => card.rank === "2" || card.rank === "JOKER",
+    (card) => card.rank === "2" || card.rank === "JOKER"
   );
   //Check for wild canasta
   if (wildCards.length === cardsToMeld.length) {
@@ -131,13 +139,13 @@ export const meldCards = (
 
   if (wildCards.length > 3 || wildCards.length > cardsToMeld.length - 2) {
     throw new Error(
-      "A meld must have at least two natural cards and can have up to three wild cards",
+      "A meld must have at least two natural cards and can have up to three wild cards"
     );
   }
 
   // Check if all natural cards to meld have the same rank
   const naturalCards = cardsToMeld.filter(
-    (card) => card.rank !== "2" && card.rank !== "JOKER",
+    (card) => card.rank !== "2" && card.rank !== "JOKER"
   );
   const rank = naturalCards[0]?.rank;
   if (rank && !naturalCards.every((card) => card.rank === rank)) {
@@ -150,12 +158,12 @@ export const meldCards = (
 export const playMeld = (
   cardsToMeld: (Card | Joker)[],
   playerHand: (Card | Joker)[],
-  playerMelds: (Card | Joker)[][],
+  playerMelds: (Card | Joker)[][]
 ) => {
   // Remove the cards to meld from the player's hand
   cardsToMeld.forEach((cardToMeld) => {
     const index = playerHand.findIndex(
-      (card) => card.rank === cardToMeld.rank && card.suit === cardToMeld.suit,
+      (card) => card.rank === cardToMeld.rank && card.suit === cardToMeld.suit
     );
     if (index === -1) {
       throw new Error("Card to meld not found in player's hand");
@@ -185,9 +193,8 @@ export const getMinimumFirstMeldPoints = (score: number): number => {
 
 export const isFirstMeldAboveMinimum = (
   playerScore: number,
-  meld: (Card | Joker)[],
+  meldPoints: number
 ): boolean => {
-  const meldPoints = getMeldPoints(meld);
   const minimumPoints = getMinimumFirstMeldPoints(playerScore);
   return meldPoints >= minimumPoints;
 };
@@ -197,11 +204,11 @@ export const getTotalMeldPoints = (melds: (Card | Joker)[][]): number => {
 
 export const canPickUpPile = (
   playerHand: (Card | Joker)[],
-  topCard: Card | Joker,
+  topCard: Card | Joker
 ): boolean => {
   const topCardRank = topCard.rank;
   const playerHandHasCard = playerHand.filter(
-    (card) => card.rank === topCardRank,
+    (card) => card.rank === topCardRank
   ).length;
   if (playerHandHasCard > 1) {
     return true;
@@ -212,7 +219,7 @@ export const canPickUpPile = (
 export const pickUpPile = async (
   discardPile: (Card | Joker)[],
   playerHand: (Card | Joker)[],
-  playerMelds: (Card | Joker)[][],
+  playerMelds: (Card | Joker)[][]
 ) => {
   if (discardPile.length === 0) {
     throw new Error("The discard pile is empty");
@@ -233,7 +240,7 @@ export const pickUpPile = async (
 const meldWithTopCard = async (
   playerHand: (Card | Joker)[],
   topCard: Card | Joker,
-  playerMelds: (Card | Joker)[][],
+  playerMelds: (Card | Joker)[][]
 ) => {
   const cardsToMeld = await promptPlayerToMeldWithTopCard(playerHand, topCard);
   meldCards(playerHand, playerMelds, cardsToMeld);
@@ -241,14 +248,14 @@ const meldWithTopCard = async (
 
 const promptPlayerToMeldWithTopCard = async (
   playerHand: (Card | Joker)[],
-  topCard: Card | Joker,
+  topCard: Card | Joker
 ) => {
   const answer = await new Promise((resolve) => {
     rl.question(
       `Enter the ids of the cards you want to meld with the ${
         (topCard.rank, topCard.suit)
       } separated by commas (or "skip" to skip): `,
-      resolve,
+      resolve
     );
   });
   try {
@@ -263,7 +270,7 @@ const promptPlayerToMeldWithTopCard = async (
 
 export const isRoundFinished = (
   players: Player[],
-  stack: (Card | Joker)[],
+  stack: (Card | Joker)[]
 ): boolean => {
   return (
     players.some((player) => player.hand.length === 0) || stack.length === 0
@@ -280,7 +287,7 @@ export const calculatePlayerScore = (player: {
 
   const handPoints = player.hand.reduce(
     (sum, card) => sum + getCardPoints(card),
-    0,
+    0
   );
 
   const score = meldPoints - handPoints + player.red_threes.length * 100;
@@ -295,52 +302,71 @@ export const playRound = async (gameState: GameState): Promise<void> => {
   let roundFinished = false;
 
   while (!roundFinished) {
-    console.log(`${currentPlayer.name}'s turn`);
+    console.log("\n\n-----------------------------------------------\n\n");
+    console.log(
+      `The top card is: ${
+        gameState.discardPile[gameState.discardPile.length - 1].rank
+      } of ${gameState.discardPile[gameState.discardPile.length - 1].suit}`
+    );
+    console.log(`${currentPlayer.name}'s turn\n`);
 
-    const startingAction = await promptPlayerForStartingRoundAction();
+    await playerMove(gameState, currentPlayer);
 
-    if (startingAction === "1") {
-      const drawnCard = drawCard(gameState.stock, currentPlayer.hand);
-      console.log(
-        `${currentPlayer.name} drew a card: ${drawnCard?.rank} of ${drawnCard?.suit}`,
-      );
-
-      promptPlayerToMeld(currentPlayer);
-    } else {
-      if (canPickUpPile(currentPlayer.hand, gameState.discardPile[0])) {
-        await pickUpPile(
-          gameState.discardPile,
-          currentPlayer.hand,
-          currentPlayer.melds,
-        );
-      } else {
-        console.log("You cannot pick up the pile");
-      }
-    }
-    promptPlayerToDiscard(currentPlayer, gameState.discardPile);
+    await promptPlayerToDiscard(currentPlayer, gameState.discardPile);
 
     roundFinished = isRoundFinished(
       [gameState.player1, gameState.player2],
-      gameState.stock,
+      gameState.stock
     );
     if (roundFinished) {
       console.log(
-        `${currentPlayer.name} has no cards left. The round is finished.`,
+        `${currentPlayer.name} has no cards left. The round is finished.`
       );
-
-      // Switch players
-      [currentPlayer, otherPlayer] = [otherPlayer, currentPlayer];
     }
+    // Switch players
+    [currentPlayer, otherPlayer] = [otherPlayer, currentPlayer];
   }
   rl.close();
 };
 
+async function playerMove(gameState: GameState, currentPlayer: Player) {
+  const startingAction = await promptPlayerForStartingRoundAction();
+
+  if (startingAction === "1") {
+    const drawnCard = drawCard(gameState.stock, currentPlayer);
+    console.log(
+      `${currentPlayer.name} drew a card: ${drawnCard?.rank} of ${drawnCard?.suit}`
+    );
+
+    await promptPlayerToMeld(currentPlayer);
+  } else if (startingAction === "2") {
+    if (canPickUpPile(currentPlayer.hand, gameState.discardPile[0])) {
+      await pickUpPile(
+        gameState.discardPile,
+        currentPlayer.hand,
+        currentPlayer.melds
+      );
+    } else {
+      console.log("You cannot pick up the pile");
+      playerMove(gameState, currentPlayer);
+      return;
+    }
+  } else {
+    printPlayerHand(currentPlayer);
+    playerMove(gameState, currentPlayer);
+    return;
+  }
+}
+
 async function promptPlayerForStartingRoundAction() {
-  console.log("Do you want to: \n1. Draw a card\n2. Pick up the discard pile");
+  console.log(
+    "\nDo you want to: \n1. Draw a card\n2. Pick up the discard pile\n3. Display your cards\n"
+  );
   const answer = (await new Promise((resolve) => {
     rl.question("Enter the number of the action you want to take: ", resolve);
   })) as string;
-  if (answer !== "1" && answer !== "2") {
+  if (answer !== "1" && answer !== "2" && answer !== "3") {
+    console.log("Invalid action");
     promptPlayerForStartingRoundAction();
     return;
   }
@@ -349,9 +375,9 @@ async function promptPlayerForStartingRoundAction() {
 
 function printPlayerHand(currentPlayer: Player) {
   console.log(
-    `${currentPlayer.name}, your hand is:\n${currentPlayer.hand
+    `\n${currentPlayer.name}, your hand is:\n${currentPlayer.hand
       .map((card, idx) => `${idx}. ${card.rank} of ${card.suit}\n`)
-      .join("")}`,
+      .join("")}`
   );
 }
 
@@ -361,7 +387,7 @@ async function promptPlayerToMeld(currentPlayer: Player) {
     const answer = await new Promise((resolve) => {
       rl.question(
         'Enter the ids of the cards you want to meld (different melds should be separated by space), separated by commas (or "skip" to skip): ',
-        resolve,
+        resolve
       );
     });
 
@@ -372,18 +398,43 @@ async function promptPlayerToMeld(currentPlayer: Player) {
       console.log(idsToMeld);
       const formattedCardsForMeld = formatCardsForMelding(
         currentPlayer,
-        idsToMeld,
+        idsToMeld
       );
-      if (formattedCardsForMeld === undefined) continue;
-      meldCards(currentPlayer.hand, currentPlayer.melds, formattedCardsForMeld);
+      if (formattedCardsForMeld === undefined) {
+        console.log("Invalid meld. Try again.");
+        continue;
+      }
+      const meldPoints = formattedCardsForMeld.reduce(
+        (sum, meld) => sum + getMeldPoints(meld),
+        0
+      );
+      checkIfIsFirstMeld(currentPlayer, meldPoints);
+      formattedCardsForMeld.forEach((meld) => {
+        console.log("Meldding cards: ", meld);
+        meldCards(currentPlayer.hand, currentPlayer.melds, meld);
+      });
       break;
-    } else break;
+    } else {
+      console.log("Your turn is skipped.");
+      break;
+    }
   }
 }
 
+const checkIfIsFirstMeld = (currentPlayer: Player, meldPoints: number) => {
+  if (
+    !isFirstMeldAboveMinimum(currentPlayer.score, meldPoints) &&
+    currentPlayer.melds.length === 0
+  ) {
+    const minPoints = getMinimumFirstMeldPoints(currentPlayer.score);
+    console.log(`Your first meld must be at least ${minPoints} points.`);
+    return undefined;
+  }
+};
+
 async function promptPlayerToDiscard(
   currentPlayer: Player,
-  discardPile: (Card | Joker)[],
+  discardPile: (Card | Joker)[]
 ) {
   printPlayerHand(currentPlayer);
   while (true) {
@@ -395,10 +446,10 @@ async function promptPlayerToDiscard(
       const disacrdedCard = discardCard(
         currentPlayer.hand,
         discardPile,
-        parseInt(discardAnswerString),
+        parseInt(discardAnswerString)
       );
       console.log(
-        `${currentPlayer.name} discarded a ${disacrdedCard.rank} of ${disacrdedCard.suit}`,
+        `${currentPlayer.name} discarded a ${disacrdedCard.rank} of ${disacrdedCard.suit}`
       );
       break;
     } else {
@@ -410,30 +461,18 @@ async function promptPlayerToDiscard(
 
 function formatCardsForMelding(
   currentPlayer: Player,
-  cardIdsToBeMelded: string[][],
+  cardIdsToBeMelded: string[][]
 ) {
-  cardIdsToBeMelded.forEach((meld) => {
+  return cardIdsToBeMelded.reduce((acc: (Card | Joker)[][], meld) => {
     const cardsToMeld = meld.map((id) => currentPlayer.hand[parseInt(id)]);
-    if (cardsToMeld.length < MIN_CARDS_FOR_MELD) {
-      console.log("At least three cards are required to meld");
-      return undefined;
-    }
-    if (
-      !isFirstMeldAboveMinimum(currentPlayer.score, cardsToMeld) &&
-      currentPlayer.melds.length === 0
-    ) {
-      const minPoints = getMinimumFirstMeldPoints(currentPlayer.score);
-      console.log(`Your first meld must be at least ${minPoints} points.`);
-      return undefined;
-    }
-
-    return cardsToMeld;
-  });
+    acc.push(cardsToMeld);
+    return acc;
+  }, []);
 }
 export function discardCard(
   hand: (Card | Joker)[],
   cards: (Card | Joker)[],
-  cardToDiscard: number,
+  cardToDiscard: number
 ) {
   const cardAtIndex = hand[cardToDiscard];
 
@@ -473,6 +512,7 @@ export async function playGame() {
     discardPile: [],
   };
 
+  console.log("Starting a new game");
   startRound(gameState);
 
   while (gameState.player1.score < 5000 && gameState.player2.score < 5000) {
@@ -482,7 +522,7 @@ export async function playGame() {
     gameState.player2.score = calculatePlayerScore(gameState.player2).score;
 
     console.log(
-      `Scores after this round: Player 1 - ${gameState.player1.score}, Player 2 - ${gameState.player2.score}`,
+      `Scores after this round: Player 1 - ${gameState.player1.score}, Player 2 - ${gameState.player2.score}`
     );
 
     resetRound(gameState);
@@ -494,3 +534,5 @@ export async function playGame() {
       : gameState.player2.name;
   console.log(`${winner} wins the game!`);
 }
+
+playGame();
