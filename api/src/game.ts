@@ -47,10 +47,10 @@ export const startRound = (gameState: GameState): void => {
 
 export const checkForRedThreeInPlayerHand = (player: Player) => {
   const redThrees = player.hand.filter(
-    (card) => card.rank === "3" && card.suit.match(/(HEART|DIAMOND)/)
+    (card) => card.rank === "3" && card.suit.match(/(HEART|DIAMOND)/),
   );
   const remainingCards = player.hand.filter(
-    (card) => card.rank !== "3" || !card.suit.match(/(HEART|DIAMOND)/)
+    (card) => card.rank !== "3" || !card.suit.match(/(HEART|DIAMOND)/),
   );
 
   if (redThrees.length > 0) {
@@ -62,7 +62,7 @@ export const checkForRedThreeInPlayerHand = (player: Player) => {
 
 export const dealCards = (
   gameState: GameState,
-  startingCards: (Card | Joker)[]
+  startingCards: (Card | Joker)[],
 ) => {
   gameState.player1.hand = startingCards.slice(0, 15);
   gameState.player2.hand = startingCards.slice(15, 30);
@@ -77,10 +77,10 @@ export const revealFirstCard = (gameState: GameState) => {
   while (
     gameState.discardPile.length === 0 ||
     gameState.discardPile[gameState.discardPile.length - 1]?.rank.match(
-      /(JOKER|2)/
+      /(JOKER|2)/,
     ) ||
     (gameState.discardPile[gameState.discardPile.length - 1]?.suit.match(
-      /(HEART|DIAMOND)/
+      /(HEART|DIAMOND)/,
     ) &&
       gameState.discardPile[gameState.discardPile.length - 1].rank === "3")
   ) {
@@ -94,7 +94,7 @@ export const revealFirstCard = (gameState: GameState) => {
 
 export const drawCard = (
   cards: (Card | Joker)[],
-  player: Player
+  player: Player,
 ): Card | Joker | undefined => {
   if (cards.length === 0) {
     console.log("Stock is empty");
@@ -119,16 +119,17 @@ export const drawCard = (
 export const meldCards = (
   playerHand: (Card | Joker)[],
   playerMelds: (Card | Joker)[][],
-  cardsToMeld: (Card | Joker)[]
+  cardsToMeld: (Card | Joker)[],
 ): void => {
   // Check if there are at least three cards to meld
   if (cardsToMeld.length < MIN_CARDS_FOR_MELD) {
-    throw new Error("At least three cards are required to meld");
+    console.log("At least three cards are required to meld");
+    return;
   }
 
   // Check if there are at least two natural cards and at most three wild cards
   const wildCards = cardsToMeld.filter(
-    (card) => card.rank === "2" || card.rank === "JOKER"
+    (card) => card.rank === "2" || card.rank === "JOKER",
   );
   //Check for wild canasta
   if (wildCards.length === cardsToMeld.length) {
@@ -139,17 +140,18 @@ export const meldCards = (
 
   if (wildCards.length > 3 || wildCards.length > cardsToMeld.length - 2) {
     throw new Error(
-      "A meld must have at least two natural cards and can have up to three wild cards"
+      "A meld must have at least two natural cards and can have up to three wild cards",
     );
   }
 
   // Check if all natural cards to meld have the same rank
   const naturalCards = cardsToMeld.filter(
-    (card) => card.rank !== "2" && card.rank !== "JOKER"
+    (card) => card.rank !== "2" && card.rank !== "JOKER",
   );
   const rank = naturalCards[0]?.rank;
   if (rank && !naturalCards.every((card) => card.rank === rank)) {
-    throw new Error("All natural cards in a meld must have the same rank");
+    console.log("All natural cards in a meld must have the same rank");
+    return;
   }
 
   playMeld(cardsToMeld, playerHand, playerMelds);
@@ -158,15 +160,16 @@ export const meldCards = (
 export const playMeld = (
   cardsToMeld: (Card | Joker)[],
   playerHand: (Card | Joker)[],
-  playerMelds: (Card | Joker)[][]
+  playerMelds: (Card | Joker)[][],
 ) => {
   // Remove the cards to meld from the player's hand
   cardsToMeld.forEach((cardToMeld) => {
     const index = playerHand.findIndex(
-      (card) => card.rank === cardToMeld.rank && card.suit === cardToMeld.suit
+      (card) => card.rank === cardToMeld.rank && card.suit === cardToMeld.suit,
     );
     if (index === -1) {
-      throw new Error("Card to meld not found in player's hand");
+      console.log("Card to meld not found in player's hand");
+      return;
     }
     playerHand.splice(index, 1);
   });
@@ -176,7 +179,10 @@ export const playMeld = (
 };
 
 export const getMeldPoints = (meld: (Card | Joker)[]): number => {
-  return meld.reduce((sum, card) => sum + getCardPoints(card), 0);
+  return (
+    meld.map((card) => getCardPoints(card)).sort((a, b) => b - a)[0] *
+    meld.length
+  );
 };
 
 export const getMinimumFirstMeldPoints = (score: number): number => {
@@ -193,7 +199,7 @@ export const getMinimumFirstMeldPoints = (score: number): number => {
 
 export const isFirstMeldAboveMinimum = (
   playerScore: number,
-  meldPoints: number
+  meldPoints: number,
 ): boolean => {
   const minimumPoints = getMinimumFirstMeldPoints(playerScore);
   return meldPoints >= minimumPoints;
@@ -204,11 +210,11 @@ export const getTotalMeldPoints = (melds: (Card | Joker)[][]): number => {
 
 export const canPickUpPile = (
   playerHand: (Card | Joker)[],
-  topCard: Card | Joker
+  topCard: Card | Joker,
 ): boolean => {
   const topCardRank = topCard.rank;
   const playerHandHasCard = playerHand.filter(
-    (card) => card.rank === topCardRank
+    (card) => card.rank === topCardRank,
   ).length;
   if (playerHandHasCard > 1) {
     return true;
@@ -219,15 +225,17 @@ export const canPickUpPile = (
 export const pickUpPile = async (
   discardPile: (Card | Joker)[],
   playerHand: (Card | Joker)[],
-  playerMelds: (Card | Joker)[][]
+  playerMelds: (Card | Joker)[][],
 ) => {
   if (discardPile.length === 0) {
-    throw new Error("The discard pile is empty");
+    console.log("The discard pile is empty");
+    return;
   }
 
   const topCard = discardPile[discardPile.length - 1];
   if (!canPickUpPile(playerHand, topCard)) {
-    throw new Error("The player cannot pick up the pile");
+    console.log("The player cannot pick up the pile");
+    return;
   }
   discardPile.pop();
 
@@ -240,22 +248,25 @@ export const pickUpPile = async (
 const meldWithTopCard = async (
   playerHand: (Card | Joker)[],
   topCard: Card | Joker,
-  playerMelds: (Card | Joker)[][]
+  playerMelds: (Card | Joker)[][],
 ) => {
-  const cardsToMeld = await promptPlayerToMeldWithTopCard(playerHand, topCard);
-  meldCards(playerHand, playerMelds, cardsToMeld);
+  let cardsToMeld: (Card | Joker)[] | number = 1;
+  while (cardsToMeld === 1) {
+    cardsToMeld = await promptPlayerToMeldWithTopCard(playerHand, topCard);
+  }
+  meldCards(playerHand, playerMelds, cardsToMeld as (Card | Joker)[]);
 };
 
 const promptPlayerToMeldWithTopCard = async (
   playerHand: (Card | Joker)[],
-  topCard: Card | Joker
+  topCard: Card | Joker,
 ) => {
   const answer = await new Promise((resolve) => {
     rl.question(
       `Enter the ids of the cards you want to meld with the ${
         (topCard.rank, topCard.suit)
       } separated by commas (or "skip" to skip): `,
-      resolve
+      resolve,
     );
   });
   try {
@@ -264,13 +275,14 @@ const promptPlayerToMeldWithTopCard = async (
     });
     return [...cardsToMeld, topCard];
   } catch (error) {
-    throw new Error("Invalid input");
+    console.log("Invalid meld. Try again.");
+    return 1;
   }
 };
 
 export const isRoundFinished = (
   players: Player[],
-  stack: (Card | Joker)[]
+  stack: (Card | Joker)[],
 ): boolean => {
   return (
     players.some((player) => player.hand.length === 0) || stack.length === 0
@@ -287,7 +299,7 @@ export const calculatePlayerScore = (player: {
 
   const handPoints = player.hand.reduce(
     (sum, card) => sum + getCardPoints(card),
-    0
+    0,
   );
 
   const score = meldPoints - handPoints + player.red_threes.length * 100;
@@ -306,7 +318,7 @@ export const playRound = async (gameState: GameState): Promise<void> => {
     console.log(
       `The top card is: ${
         gameState.discardPile[gameState.discardPile.length - 1].rank
-      } of ${gameState.discardPile[gameState.discardPile.length - 1].suit}`
+      } of ${gameState.discardPile[gameState.discardPile.length - 1].suit}`,
     );
     console.log(`${currentPlayer.name}'s turn\n`);
 
@@ -316,11 +328,11 @@ export const playRound = async (gameState: GameState): Promise<void> => {
 
     roundFinished = isRoundFinished(
       [gameState.player1, gameState.player2],
-      gameState.stock
+      gameState.stock,
     );
     if (roundFinished) {
       console.log(
-        `${currentPlayer.name} has no cards left. The round is finished.`
+        `${currentPlayer.name} has no cards left. The round is finished.`,
       );
     }
     // Switch players
@@ -335,7 +347,7 @@ async function playerMove(gameState: GameState, currentPlayer: Player) {
   if (startingAction === "1") {
     const drawnCard = drawCard(gameState.stock, currentPlayer);
     console.log(
-      `${currentPlayer.name} drew a card: ${drawnCard?.rank} of ${drawnCard?.suit}`
+      `${currentPlayer.name} drew a card: ${drawnCard?.rank} of ${drawnCard?.suit}`,
     );
 
     await promptPlayerToMeld(currentPlayer);
@@ -344,7 +356,7 @@ async function playerMove(gameState: GameState, currentPlayer: Player) {
       await pickUpPile(
         gameState.discardPile,
         currentPlayer.hand,
-        currentPlayer.melds
+        currentPlayer.melds,
       );
     } else {
       console.log("You cannot pick up the pile");
@@ -360,14 +372,14 @@ async function playerMove(gameState: GameState, currentPlayer: Player) {
 
 async function promptPlayerForStartingRoundAction() {
   console.log(
-    "\nDo you want to: \n1. Draw a card\n2. Pick up the discard pile\n3. Display your cards\n"
+    "\nDo you want to: \n1. Draw a card\n2. Pick up the discard pile\n3. Display your cards\n",
   );
   const answer = (await new Promise((resolve) => {
     rl.question("Enter the number of the action you want to take: ", resolve);
   })) as string;
   if (answer !== "1" && answer !== "2" && answer !== "3") {
     console.log("Invalid action");
-    promptPlayerForStartingRoundAction();
+    await promptPlayerForStartingRoundAction();
     return;
   }
   return answer;
@@ -377,7 +389,7 @@ function printPlayerHand(currentPlayer: Player) {
   console.log(
     `\n${currentPlayer.name}, your hand is:\n${currentPlayer.hand
       .map((card, idx) => `${idx}. ${card.rank} of ${card.suit}\n`)
-      .join("")}`
+      .join("")}`,
   );
 }
 
@@ -387,7 +399,7 @@ async function promptPlayerToMeld(currentPlayer: Player) {
     const answer = await new Promise((resolve) => {
       rl.question(
         'Enter the ids of the cards you want to meld (different melds should be separated by space), separated by commas (or "skip" to skip): ',
-        resolve
+        resolve,
       );
     });
 
@@ -398,7 +410,7 @@ async function promptPlayerToMeld(currentPlayer: Player) {
       console.log(idsToMeld);
       const formattedCardsForMeld = formatCardsForMelding(
         currentPlayer,
-        idsToMeld
+        idsToMeld,
       );
       if (formattedCardsForMeld === undefined) {
         console.log("Invalid meld. Try again.");
@@ -406,9 +418,15 @@ async function promptPlayerToMeld(currentPlayer: Player) {
       }
       const meldPoints = formattedCardsForMeld.reduce(
         (sum, meld) => sum + getMeldPoints(meld),
-        0
+        0,
       );
-      checkIfIsFirstMeld(currentPlayer, meldPoints);
+      if (checkIfIsFirstMeld(currentPlayer, meldPoints) === undefined) continue;
+      if (
+        formattedCardsForMeld.some(
+          (cardsToMeld) => checkIfIsWildMeld(cardsToMeld) === undefined,
+        )
+      )
+        continue;
       formattedCardsForMeld.forEach((meld) => {
         console.log("Meldding cards: ", meld);
         meldCards(currentPlayer.hand, currentPlayer.melds, meld);
@@ -420,6 +438,27 @@ async function promptPlayerToMeld(currentPlayer: Player) {
     }
   }
 }
+
+const checkIfIsWildMeld = (cardsToMeld: (Card | Joker)[]) => {
+  if (checkIfAllCardsAreWild(cardsToMeld)) {
+    if (
+      cardsToMeld.filter((card) => card.rank === "JOKER").length <
+      cardsToMeld.filter((card) => card.rank === "2").length
+    ) {
+      console.log(
+        "Invalid meld. Wild meld cannot have more Twos than Jokers. Try again.",
+      );
+      return true;
+    }
+  }
+  return undefined;
+};
+
+const checkIfAllCardsAreWild = (cardsToMeld: (Card | Joker)[]) => {
+  return cardsToMeld.every(
+    (card) => card.rank === "JOKER" || card.rank === "2",
+  );
+};
 
 const checkIfIsFirstMeld = (currentPlayer: Player, meldPoints: number) => {
   if (
@@ -434,7 +473,7 @@ const checkIfIsFirstMeld = (currentPlayer: Player, meldPoints: number) => {
 
 async function promptPlayerToDiscard(
   currentPlayer: Player,
-  discardPile: (Card | Joker)[]
+  discardPile: (Card | Joker)[],
 ) {
   printPlayerHand(currentPlayer);
   while (true) {
@@ -446,10 +485,10 @@ async function promptPlayerToDiscard(
       const disacrdedCard = discardCard(
         currentPlayer.hand,
         discardPile,
-        parseInt(discardAnswerString)
+        parseInt(discardAnswerString),
       );
       console.log(
-        `${currentPlayer.name} discarded a ${disacrdedCard.rank} of ${disacrdedCard.suit}`
+        `${currentPlayer.name} discarded a ${disacrdedCard.rank} of ${disacrdedCard.suit}`,
       );
       break;
     } else {
@@ -461,7 +500,7 @@ async function promptPlayerToDiscard(
 
 function formatCardsForMelding(
   currentPlayer: Player,
-  cardIdsToBeMelded: string[][]
+  cardIdsToBeMelded: string[][],
 ) {
   return cardIdsToBeMelded.reduce((acc: (Card | Joker)[][], meld) => {
     const cardsToMeld = meld.map((id) => currentPlayer.hand[parseInt(id)]);
@@ -472,7 +511,7 @@ function formatCardsForMelding(
 export function discardCard(
   hand: (Card | Joker)[],
   cards: (Card | Joker)[],
-  cardToDiscard: number
+  cardToDiscard: number,
 ) {
   const cardAtIndex = hand[cardToDiscard];
 
@@ -522,7 +561,7 @@ export async function playGame() {
     gameState.player2.score = calculatePlayerScore(gameState.player2).score;
 
     console.log(
-      `Scores after this round: Player 1 - ${gameState.player1.score}, Player 2 - ${gameState.player2.score}`
+      `Scores after this round: Player 1 - ${gameState.player1.score}, Player 2 - ${gameState.player2.score}`,
     );
 
     resetRound(gameState);
@@ -534,5 +573,4 @@ export async function playGame() {
       : gameState.player2.name;
   console.log(`${winner} wins the game!`);
 }
-
 playGame();

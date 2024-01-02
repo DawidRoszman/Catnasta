@@ -5,6 +5,7 @@
   "main": "src/index.js",
   "author": "Dawid Roszman",
   "license": "MIT",
+  "type": "module",
   "scripts": {
     "dev": "bun --watch index.ts",
     "start": "bun index.ts"
