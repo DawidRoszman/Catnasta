@@ -2,13 +2,11 @@
   "name": "api",
   "version": "1.0.0",
   "description": "REST API for cardgame Catnasta",
-  "main": "src/index.js",
+  "main": "index.js",
   "author": "Dawid Roszman",
   "license": "MIT",
-  "type": "module",
   "scripts": {
-    "dev": "bun --watch index.ts",
-    "start": "bun index.ts"
+    "dev": "tsc index.ts && node index.js"
   },
   "dependencies": {
     "body-parser": "^1.20.2",
