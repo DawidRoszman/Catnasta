@@ -20,9 +20,9 @@ export default async function Home() {
             <div className="grid h-20 card bg-base-300 rounded-box place-items-center cursor-pointer transition-all duration-400 hover:bg-primary">
               Join an existing game
             </div>
+            <Mqtt />
           </div>
         </div>
-        <Mqtt />
       </div>
     </Suspense>
   );
