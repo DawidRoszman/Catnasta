@@ -2427,6 +2427,11 @@ pkg-dir@^4.2.0:
   dependencies:
     find-up "^4.0.0"
 
+pocketbase@^0.20.1:
+  version "0.20.1"
+  resolved "https://registry.yarnpkg.com/pocketbase/-/pocketbase-0.20.1.tgz#e34a0113306322f9382a8b775de3b83f7304929f"
+  integrity sha512-Gl51UBc1U03JlwmwMkUIa1OHbcTmmdhyMPV1aJyHp9HuY5VUlh0t4hcx6D1fdhYsJcoh3kc6mpwhTBfXDoyn8w==
+
 pretty-format@^29.0.0, pretty-format@^29.7.0:
   version "29.7.0"
   resolved "https://registry.yarnpkg.com/pretty-format/-/pretty-format-29.7.0.tgz#ca42c758310f365bfa71a0bda0a807160b776812"
