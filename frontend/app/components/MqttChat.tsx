@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect } from "react";
 import client from "../lib/mqtt";
+import axios from "axios";
 interface Message {
   username: string;
   message: string;
@@ -11,6 +12,20 @@ const MqttChat = () => {
   const [messages, setMessages] = React.useState<Message[]>([]);
   useEffect(() => {
     client.subscribe("catnasta-chat");
+
+    const getMessages = async () => {
+      const response = await axios.get("http://localhost:5000/chat");
+      const messages = response.data.map((message: any) => {
+        return {
+          username: message.username,
+          message: message.message,
+        };
+      });
+      setMessages(messages);
+    };
+
+    getMessages();
+
     const handleMessage = (topic: any, message: any) => {
       const { username, msg } = JSON.parse(message.toString());
 
