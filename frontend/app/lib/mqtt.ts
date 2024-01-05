@@ -15,5 +15,4 @@ client.options.will = {
   qos: 0,
   retain: false,
 };
-
 export default client;

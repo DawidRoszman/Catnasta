@@ -19,26 +19,11 @@ app.get("/", (req: Request, res: Response) => {
   res.send("Welcome to Catnasta");
 });
 
-app.get("/game", (req: Request, res: Response) => {
+app.post("/create_game", async (req: Request, res: Response) => {});
+
+app.get("/join_game", (req: Request, res: Response) => {
   client.publish("catnasta", "Game");
   res.send("Game");
-});
-
-app.post("/auth/login", async (req: Request, res: Response) => {
-  if (!req.body.username || !req.body.password) {
-    res.status(401).send("Please enter username and password");
-    return;
-  }
-  const { username, password } = req.body;
-  try {
-    const authData = await pb
-      .collection("users")
-      .authWithPassword(username, password);
-    res.send(authData.record.name);
-  } catch (error) {
-    res.status(401).send(error.message);
-    return;
-  }
 });
 
 app.listen(port, () => {

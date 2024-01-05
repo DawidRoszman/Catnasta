@@ -6,7 +6,6 @@ const SetUsername = () => {
   const modalRef = React.useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const username = localStorage.getItem("username");
-    console.log(username);
     if (username === null) modalRef.current?.showModal();
     else setName(username);
 
