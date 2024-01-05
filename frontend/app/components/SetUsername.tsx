@@ -29,7 +29,7 @@ const SetUsername = () => {
     <>
       <div className="fixed top-0 right-0 p-4">
         <button
-          className="btn btn-info tooltip tooltip-bottom"
+          className="btn btn-primary tooltip tooltip-bottom"
           data-tip="Edit nickname"
           onClick={() => modalRef.current?.showModal()}
         >

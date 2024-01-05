@@ -1,8 +1,8 @@
 import axios from "axios";
 import { Suspense } from "react";
-import Mqtt from "./components/Mqtt";
 import SetUsername from "./components/SetUsername";
 import Loading from "./components/Loading";
+import MqttChat from "./components/MqttChat";
 
 export default async function Home() {
   const data = await axios.get("http://localhost:5000/");
@@ -23,7 +23,7 @@ export default async function Home() {
             <div className="grid h-20 card bg-base-300 rounded-box place-items-center cursor-pointer transition-all duration-400 hover:bg-primary">
               Join an existing game
             </div>
-            <Mqtt />
+            <MqttChat />
           </div>
         </div>
       </div>
