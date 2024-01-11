@@ -6,7 +6,7 @@
   "author": "Dawid Roszman",
   "license": "MIT",
   "scripts": {
-    "dev": "tsc index.ts && node index.js"
+    "dev": "deno run --allow-all index.ts"
   },
   "dependencies": {
     "body-parser": "^1.20.2",
@@ -17,6 +17,7 @@
     "pocketbase": "^0.20.1"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/jest": "^29.5.11",
     "@types/node": "^20.10.4",

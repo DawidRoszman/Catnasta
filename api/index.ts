@@ -9,7 +9,7 @@ const client = mqtt.connect("ws://broker.emqx.io:8083/mqtt", {
 });
 
 const pb = new PocketBase("http://127.0.0.1:8090");
-await pb.admins.authWithPassword("dawidroszman@gmail.com", "ypjTRaf!s6K7H:x");
+pb.admins.authWithPassword("dawidroszman@gmail.com", "ypjTRaf!s6K7H:x");
 
 client.publish("catnasta", "Hello mqtt");
 

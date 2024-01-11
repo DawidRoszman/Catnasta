@@ -2,12 +2,14 @@
 import React, { useEffect } from "react";
 import client from "../lib/mqtt";
 import axios from "axios";
+import { useCookies } from "next-client-cookies";
 interface Message {
   username: string;
   message: string;
 }
 
 const MqttChat = () => {
+  const cookies = useCookies();
   const [message, setMessage] = React.useState("");
   const [messages, setMessages] = React.useState<Message[]>([]);
   useEffect(() => {
@@ -41,7 +43,7 @@ const MqttChat = () => {
     client.publish(
       "catnasta-chat",
       JSON.stringify({
-        username: localStorage.getItem("username"),
+        username: cookies.get("username"),
         msg: message,
       }),
     );

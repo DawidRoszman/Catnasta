@@ -1,29 +1,26 @@
 "use client";
+import { useCookies } from "next-client-cookies";
 import React, { useEffect } from "react";
 
 const SetUsername = () => {
   const [name, setName] = React.useState("");
   const modalRef = React.useRef<HTMLDialogElement>(null);
+  const cookies = useCookies();
   useEffect(() => {
-    const username = localStorage.getItem("username");
-    if (username === null) modalRef.current?.showModal();
+    const username = cookies.get("username");
+    if (username === undefined) modalRef.current?.showModal();
     else setName(username);
-  }, []);
-
-  modalRef.current?.addEventListener("close", () => {
-    handleClick();
-    if (localStorage.getItem("username") === null)
-      modalRef.current?.showModal();
-  });
+  }, [cookies]);
 
   const handleClick = () => {
     if (name === "") {
       const username = "User-" + Math.random().toString(36).substr(2, 5);
-      localStorage.setItem("username", username);
+      cookies.set("username", username);
       setName(username);
       return;
     }
-    localStorage.setItem("username", name);
+    cookies.set("username", name);
+    setName(name);
   };
   return (
     <>
@@ -50,7 +47,7 @@ const SetUsername = () => {
             />
           </p>
           <div className="modal-action">
-            <form method="dialog">
+            <form method="dialog" onSubmit={handleClick}>
               {/* if there is a button in form, it will close the modal */}
               <button type="submit" className="btn btn-primary">
                 Save
