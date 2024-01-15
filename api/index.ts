@@ -19,14 +19,33 @@ app.use(express.json());
 app.use(cors());
 
 client.subscribe("catnasta-chat");
+client.subscribe("catnasta-game");
 
-client.on("message", (topic, message) => {
+client.on("message", async (topic, message) => {
   if (topic === "catnasta-chat") {
     const msg = JSON.parse(message.toString());
     pb.collection("chat").create({
       username: msg.username,
       message: msg.msg,
     });
+  }
+  if (topic === "catnasta-game") {
+    const msg = JSON.parse(message.toString());
+    switch (msg.state) {
+      case "PLAYER_JOINED": {
+        const game = await pb
+          .collection("games")
+          .getFirstListItem(`id = "${msg.id}"`);
+        const { gameState } = game;
+        client.publish(
+          `catnasta-game-${msg.id}-${msg.name}`,
+          JSON.stringify({
+            player1: gameState.player1,
+            player2: gameState.player2,
+          }),
+        );
+      }
+    }
   }
 });
 
@@ -40,11 +59,51 @@ app.get("/", (req: Request, res: Response) => {
   res.send("Welcome to Catnasta");
 });
 
-app.post("/create_game", async (req: Request, res: Response) => {});
+app.post("/create_game", async (req: Request, res: Response) => {
+  const name = req.body.name;
+  // random id for game lenght 6 can be characters and numbers
 
-app.get("/join_game", (req: Request, res: Response) => {
-  client.publish("catnasta", "Game");
-  res.send("Game");
+  if (!name) {
+    res.send("Please enter a name");
+  }
+  const id = Math.random().toString(36).substring(2, 8);
+  const game = await pb.collection("games").create({
+    gameId: id,
+    gameState: {
+      player1: name,
+    },
+  });
+  res.send({ id: game.gameId });
+});
+
+app.put("/join_game", async (req: Request, res: Response) => {
+  const id = req.body.id;
+  const name = req.body.name;
+  if (!id) {
+    res.send("Please enter a game id");
+  }
+  if (!name) {
+    res.send("Please enter a name");
+  }
+  console.log(id);
+  const game = await pb
+    .collection("games")
+    .getFirstListItem('gameId = "' + id + '"');
+  console.log(game);
+  const { gameState } = game;
+  if (gameState.player1 && gameState.player2) {
+    res.send({ msg: "Game is full" });
+  }
+  if (gameState.player1 && !gameState.player2) {
+    await pb.collection("games").update(game.id, {
+      gameState: {
+        ...gameState,
+        player2: req.body.name,
+      },
+    });
+    res.send({ id: id });
+  }
+  res.send({ msg: "Game not found" });
 });
 
 app.listen(port, () => {

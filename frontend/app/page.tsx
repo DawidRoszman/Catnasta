@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import SetUsername from "./components/SetUsername";
 import Loading from "./components/Loading";
 import MqttChat from "./components/MqttChat";
+import GameMenu from "./components/GameMenu";
 
 export default async function Home() {
   const data = await axios.get("http://localhost:5000/");
@@ -16,13 +17,7 @@ export default async function Home() {
             <div className="my-5">
               <h1 className="text-5xl font-bold">{text}</h1>
             </div>
-            <div className="grid h-20 card bg-base-300 rounded-box place-items-center cursor-pointer transition-all duration-400 hover:bg-primary">
-              Create a new game
-            </div>
-            <div className="divider">OR</div>
-            <div className="grid h-20 card bg-base-300 rounded-box place-items-center cursor-pointer transition-all duration-400 hover:bg-primary">
-              Join an existing game
-            </div>
+            <GameMenu />
             <MqttChat />
           </div>
         </div>
