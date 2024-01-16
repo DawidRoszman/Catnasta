@@ -41,7 +41,7 @@ const MqttChat = () => {
   const handleSendMsg = (e: any) => {
     e.preventDefault();
     client.publish(
-      "catnasta-chat",
+      "catnasta/chat",
       JSON.stringify({
         username: cookies.get("username"),
         msg: message,
@@ -67,11 +67,10 @@ const MqttChat = () => {
                 return (
                   <div key={id}>
                     <div
-                      className={`chat ${
-                        message.username === localStorage.getItem("username")
+                      className={`chat ${message.username === localStorage.getItem("username")
                           ? "chat-end"
                           : "chat-start"
-                      }`}
+                        }`}
                     >
                       <div className="chat-header">{message.username}</div>
                       <div className="chat-bubble">{message.message}</div>

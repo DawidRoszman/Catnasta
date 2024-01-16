@@ -1,10 +1,8 @@
 "use client";
 import React from "react";
-import { GameContext } from "./gameContext";
 
 const DisplayGameId = () => {
-  const gameContext = React.useContext(GameContext);
-  return <div>{gameContext}</div>;
+  return <div></div>;
 };
 
 export default DisplayGameId;

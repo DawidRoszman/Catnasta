@@ -1,40 +1,5 @@
-import { randomUUID } from "crypto";
-
-export enum Rank {
-  ACE = "A",
-  KING = "K",
-  QUEEN = "Q",
-  JACK = "J",
-  TEN = "10",
-  NINE = "9",
-  EIGHT = "8",
-  SEVEN = "7",
-  SIX = "6",
-  FIVE = "5",
-  FOUR = "4",
-  THREE = "3",
-  TWO = "2",
-}
-
-export enum Suit {
-  HEART = "HEART",
-  DIAMOND = "DIAMOND",
-  CLUB = "CLUB",
-  SPADE = "SPADE",
-}
-
-export type Card = {
-  id: string;
-  rank: Rank;
-  suit: Suit;
-};
-
-export type Joker = {
-  id: string;
-  rank: "JOKER";
-  suit: "RED" | "BLACK";
-};
-
+import { v4 as randomUUID } from "uuid";
+import { Card, Joker, Rank, Suit } from "./types/types.ts";
 const cardsWithoutJoker: Card[] = Array.from({ length: 52 }, (_, i) => {
   const rank = Object.values(Rank)[i % 13];
   const suit = Object.values(Suit)[Math.floor(i / 13)];

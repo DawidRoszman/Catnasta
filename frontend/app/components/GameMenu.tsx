@@ -20,6 +20,7 @@ const GameMenu = () => {
       name: cookies.get("username"),
     });
     if (response.data.id === undefined) {
+      console.log(response.data);
       alert(response.data.msg);
       return;
     }
