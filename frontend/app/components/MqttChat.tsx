@@ -13,7 +13,7 @@ const MqttChat = () => {
   const [message, setMessage] = React.useState("");
   const [messages, setMessages] = React.useState<Message[]>([]);
   useEffect(() => {
-    client.subscribe("catnasta-chat");
+    client.subscribe("catnasta/chat");
 
     const getMessages = async () => {
       const response = await axios.get("http://localhost:5000/chat");
@@ -67,9 +67,9 @@ const MqttChat = () => {
                 return (
                   <div key={id}>
                     <div
-                      className={`chat ${message.username === localStorage.getItem("username")
-                          ? "chat-end"
-                          : "chat-start"
+                      className={`chat ${message.username === cookies.get("username")
+                        ? "chat-end"
+                        : "chat-start"
                         }`}
                     >
                       <div className="chat-header">{message.username}</div>

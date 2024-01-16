@@ -1,5 +1,11 @@
 "use client";
-import { Dispatch, createContext, useContext, useEffect, useReducer } from "react";
+import {
+  Dispatch,
+  createContext,
+  useContext,
+  useEffect,
+  useReducer,
+} from "react";
 import { Action, Game, Type, gameReducer } from "./gameReducer";
 import client from "@/app/lib/mqtt";
 import { useCookies } from "next-client-cookies";
@@ -26,6 +32,9 @@ export function useGameDispatch() {
 const initalContext: Game = {
   gameId: "",
   gameState: {
+    turn: null,
+    canDraw: false,
+    canDiscard: false,
     player1: {
       name: "",
       hand: [],
@@ -35,6 +44,7 @@ const initalContext: Game = {
     },
     player2: {
       name: "",
+      num_of_cards_in_hand: 0,
       melds: [],
       red_threes: [],
       score: 0,
@@ -43,7 +53,13 @@ const initalContext: Game = {
   },
 };
 
-export function GameContextProvider({ children, gameId }: { children: React.ReactNode, gameId: string; }) {
+export function GameContextProvider({
+  children,
+  gameId,
+}: {
+  children: React.ReactNode;
+  gameId: string;
+}) {
   const cookies = useCookies();
   initalContext.gameId = gameId;
   initalContext.gameState.player1.name = cookies.get("username")!;
@@ -58,7 +74,7 @@ export function GameContextProvider({ children, gameId }: { children: React.Reac
         JSON.stringify({
           id: gameId,
           name: cookies.get("username"),
-          state: "PLAYER_JOINED",
+          type: "PLAYER_JOINED",
         }),
       );
     });
@@ -70,27 +86,65 @@ export function GameContextProvider({ children, gameId }: { children: React.Reac
           dispatch({
             type: Type.SET_SECOND_PLAYER,
             payload: {
-              name: cookies.get("username")! === msg.player1 ? msg.player2 : msg.player1,
-            }
-          }
-          );
+              name:
+                cookies.get("username")! === msg.player1
+                  ? msg.player2
+                  : msg.player1,
+            },
+          });
           break;
         case "GAME_START":
           console.log("Game started");
+          dispatch({
+            type: Type.SET_CURRENT_PLAYER,
+            payload: msg.current_player,
+          });
+          break;
+        case "TURN":
+          dispatch({
+            type: Type.SET_CURRENT_PLAYER,
+            payload: msg.current_player,
+          });
           break;
         case "HAND":
           console.log("Hand received");
           console.log(msg.hand);
+          dispatch({
+            type: Type.EDIT_PLAYER_HAND,
+            payload: msg.hand,
+          });
           break;
         case "RED_THREES":
           console.log("Red threes received");
           console.log(msg.red_threes);
+          if (msg.player === cookies.get("username")) {
+            dispatch({
+              type: Type.EDIT_PLAYER_RED_THREES,
+              payload: msg.red_threes,
+            });
+          } else {
+            dispatch({
+              type: Type.EDIT_SECOND_PLAYER_RED_THREES,
+              payload: msg.red_threes,
+            });
+          }
+          break;
+        case "ENEMY_HAND":
+          console.log("Enemy hand received");
+          console.log(msg.enemy_hand);
+          dispatch({
+            type: Type.EDIT_SECOND_PLAYER_HAND,
+            payload: msg.enemy_hand,
+          });
           break;
         case "DISCARD_PILE_TOP_CARD":
           console.log("Discard pile top card received");
           console.log(msg.discard_pile_top_card);
+          dispatch({
+            type: Type.EDIT_DISCARD_PILE_TOP_CARD,
+            payload: msg.discard_pile_top_card,
+          });
           break;
-
       }
     };
     client.on("message", handleMessage);

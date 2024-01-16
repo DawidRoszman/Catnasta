@@ -487,21 +487,22 @@ export const drawCard = (
 //     return acc;
 //   }, []);
 // }
-// export function discardCard(
-//   hand: (Card | Joker)[],
-//   cards: (Card | Joker)[],
-//   cardToDiscard: number,
-// ) {
-//   const cardAtIndex = hand[cardToDiscard];
-//
-//   if (cardToDiscard !== -1) {
-//     hand.splice(cardToDiscard, 1);
-//     cards.push(cardAtIndex);
-//   } else {
-//     throw new Error("Card not found in hand");
-//   }
-//   return cardAtIndex;
-// }
+export function discardCard(
+  hand: (Card | Joker)[],
+  cards: (Card | Joker)[],
+  cardId: string,
+) {
+  const cardToDiscard = hand.find((card) => card.id === cardId);
+  const cardIndex = hand.findIndex((card) => card.id === cardId);
+
+  if (cardToDiscard !== undefined) {
+    hand.splice(cardIndex, 1);
+    cards.push(cardToDiscard);
+  } else {
+    throw new Error("Card not found in hand");
+  }
+  return cardToDiscard;
+}
 // export function resetRound(gameState: GameState) {
 //   gameState.player1.hand = [];
 //   gameState.player1.melds = [];

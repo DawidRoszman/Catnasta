@@ -27,7 +27,7 @@ const GameMenu = () => {
     client.publish(
       "catnasta-game",
       JSON.stringify({
-        state: "PLAYER_JOINED",
+        type: "PLAYER_JOINED",
         id: response.data.id,
         name: cookies.get("username"),
       }),

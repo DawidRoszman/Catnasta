@@ -4,7 +4,7 @@ import PocketBase from "pocketbase";
 import cors from "cors";
 import { games } from "./src/gameService.ts";
 import { ClientGame, GameState } from "./src/types/types.ts";
-import { startRound } from "./src/game.ts";
+import { discardCard, drawCard, startRound } from "./src/game.ts";
 
 const clientId = "mqttjs_server_" + Math.random().toString(16).slice(2, 8);
 const client = mqtt.connect("ws://broker.emqx.io:8083/mqtt", {
@@ -38,9 +38,9 @@ client.on("message", async (topic, message) => {
     if (game === undefined) {
       return;
     }
-    switch (msg.state) {
+    const { gameState } = game;
+    switch (msg.type) {
       case "PLAYER_JOINED":
-        const { gameState } = game;
         if (
           msg.name !== gameState.player1.name &&
           msg.name !== gameState.player2.name
@@ -61,6 +61,12 @@ client.on("message", async (topic, message) => {
         if (gameState.player1.name && gameState.player2.name) {
           startRoundDispatch(gameState, msg);
         }
+        break;
+      case "DRAW_FROM_STOCK":
+        drawCardDispatch(gameState, msg);
+        break;
+      case "DISCARD_CARD":
+        discardCardDispatch(gameState, msg);
         break;
     }
   }
@@ -87,6 +93,7 @@ app.post("/create_game", async (req: Request, res: Response) => {
   const game = {
     gameId: id,
     gameState: {
+      turn: "",
       player1: {
         name: name,
         hand: [],
@@ -149,10 +156,13 @@ app.listen(port, () => {
 });
 function startRoundDispatch(gameState: GameState, msg: any) {
   startRound(gameState);
+  const playerTurn = Math.random() < 0.5 ? gameState.player1.name : gameState.player2.name
+  gameState.turn = playerTurn;
   client.publish(
     `catnasta/game/${msg.id}`,
     JSON.stringify({
       type: "GAME_START",
+      current_player: gameState.turn,
     })
   );
   client.publish(
@@ -163,10 +173,18 @@ function startRoundDispatch(gameState: GameState, msg: any) {
     })
   );
   client.publish(
-    `catnasta/game/${msg.id}/${gameState.player1.name}`,
+    `catnasta/game/${msg.id}`,
     JSON.stringify({
       type: "RED_THREES",
+      player: gameState.player1.name,
       red_threes: gameState.player1.red_threes,
+    })
+  );
+  client.publish(
+    `catnasta/game/${msg.id}/${gameState.player1.name}`,
+    JSON.stringify({
+      type: "ENEMY_HAND",
+      enemy_hand: gameState.player2.hand.length,
     })
   );
   client.publish(
@@ -177,10 +195,18 @@ function startRoundDispatch(gameState: GameState, msg: any) {
     })
   );
   client.publish(
-    `catnasta/game/${msg.id}/${gameState.player2.name}`,
+    `catnasta/game/${msg.id}`,
     JSON.stringify({
       type: "RED_THREES",
+      player: gameState.player2.name,
       red_threes: gameState.player2.red_threes,
+    })
+  );
+  client.publish(
+    `catnasta/game/${msg.id}/${gameState.player2.name}`,
+    JSON.stringify({
+      type: "ENEMY_HAND",
+      enemy_hand: gameState.player1.hand.length,
     })
   );
 
@@ -193,3 +219,115 @@ function startRoundDispatch(gameState: GameState, msg: any) {
   );
 }
 
+const drawCardDispatch = (gameState: GameState, msg: any) => {
+  if (msg.name !== gameState.player1.name && msg.name !== gameState.player2.name) {
+    console.log("wrong player");
+    return;
+  }
+  if (msg.name === undefined) {
+    console.log("no name");
+    return;
+  }
+  const player = msg.name === gameState.player1.name ? gameState.player1 : gameState.player2;
+  if (player.name !== gameState.turn) {
+    console.log("wrong turn");
+    return;
+  }
+  if (gameState.stock.length === 0) {
+    throw new Error("Stock is empty");
+  }
+  const currPlayer = msg.name === gameState.player1.name ? gameState.player1 : gameState.player2;
+  drawCard(gameState.stock, currPlayer)
+  client.publish(
+    `catnasta/game/${msg.id}/${msg.name}`,
+    JSON.stringify({
+      type: "HAND",
+      hand: player.hand,
+    })
+  );
+  //send red threes
+  client.publish(
+    `catnasta/game/${msg.id}`,
+    JSON.stringify({
+      type: "RED_THREES",
+      player: gameState.player1.name,
+      red_threes: gameState.player1.red_threes,
+    })
+  );
+  client.publish(
+    `catnasta/game/${msg.id}`,
+    JSON.stringify({
+      type: "DISCARD_PILE_TOP_CARD",
+      discard_pile_top_card: gameState.discardPile[0],
+    })
+  );
+  client.publish(
+    `catnasta/game/${msg.id}`,
+    JSON.stringify({
+      type: "STOCK",
+      stock: gameState.stock.length,
+    })
+  );
+  client.publish(
+    `catnasta/game/${msg.id}/${currPlayer.name === gameState.player1.name ? gameState.player2.name : gameState.player1.name}`,
+    JSON.stringify({
+      type: "ENEMY_HAND",
+      enemy_hand: currPlayer.hand.length,
+    })
+  );
+}
+
+const discardCardDispatch = (gameState: GameState, msg: any) => {
+  if (msg.name !== gameState.player1.name && msg.name !== gameState.player2.name) {
+    console.log("wrong player");
+    return;
+  }
+  if (msg.name === undefined) {
+    console.log("no name");
+    return;
+  }
+  if (gameState.turn !== msg.name) {
+    console.log("wrong turn");
+    return;
+  }
+  const player = msg.name === gameState.player1.name ? gameState.player1 : gameState.player2;
+  discardCard(player.hand, gameState.discardPile, msg.cardId)
+  console.log(gameState)
+  const newTurn = player.name === gameState.player1.name ? gameState.player2.name : gameState.player1.name;
+  gameState.turn = newTurn;
+  client.publish(
+    `catnasta/game/${msg.id}/${msg.name}`,
+    JSON.stringify({
+      type: "HAND",
+      hand: player.hand,
+    })
+  );
+  client.publish(
+    `catnasta/game/${msg.id}`,
+    JSON.stringify({
+      type: "DISCARD_PILE_TOP_CARD",
+      discard_pile_top_card: gameState.discardPile.reverse()[0],
+    })
+  );
+  client.publish(
+    `catnasta/game/${msg.id}`,
+    JSON.stringify({
+      type: "STOCK",
+      stock: gameState.stock.length,
+    })
+  );
+  client.publish(
+    `catnasta/game/${msg.id}/${newTurn}`,
+    JSON.stringify({
+      type: "ENEMY_HAND",
+      enemy_hand: player.hand.length,
+    })
+  );
+  client.publish(
+    `catnasta/game/${msg.id}`,
+    JSON.stringify({
+      type: "TURN",
+      current_player: newTurn,
+    })
+  );
+}

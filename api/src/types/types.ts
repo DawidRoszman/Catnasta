@@ -1,6 +1,7 @@
 export interface ClientGame {
   gameId: string;
   gameState: {
+    turn: string,
     player1: {
       name: string;
       score: number;
@@ -30,6 +31,7 @@ export interface Player {
 }
 
 export interface GameState {
+  turn: string;
   player1: Player;
   player2: Player;
   discardPile: (Card | Joker)[];
@@ -67,5 +69,5 @@ export type Card = {
 export type Joker = {
   id: string;
   rank: "JOKER";
-  suit: "RED" | "BLACK";
+  suit: Suit;
 };

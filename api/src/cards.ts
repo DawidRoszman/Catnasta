@@ -9,8 +9,10 @@ const cardsWithoutJoker: Card[] = Array.from({ length: 52 }, (_, i) => {
 
 export const deck: (Card | Joker)[] = [
   ...cardsWithoutJoker,
-  { id: randomUUID(), rank: "JOKER", suit: "RED" },
-  { id: randomUUID(), rank: "JOKER", suit: "BLACK" },
+  { id: randomUUID(), rank: "JOKER", suit: Suit.CLUB },
+  { id: randomUUID(), rank: "JOKER", suit: Suit.DIAMOND },
+  { id: randomUUID(), rank: "JOKER", suit: Suit.HEART },
+  { id: randomUUID(), rank: "JOKER", suit: Suit.SPADE },
 ];
 
 export const shuffle = (deck: (Card | Joker)[]) => {
@@ -23,7 +25,10 @@ export const shuffle = (deck: (Card | Joker)[]) => {
 };
 
 export const getStartingCards = (deck: (Card | Joker)[]) => {
-  return shuffle([...deck, ...deck]);
+  const shuffled = shuffle(deck).map(card => {
+    return { ...card, id: randomUUID() };
+  });
+  return shuffled
 };
 
 export const getCardPoints = (card: Card | Joker): number => {

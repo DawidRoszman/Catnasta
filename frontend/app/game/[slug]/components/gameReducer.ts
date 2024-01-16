@@ -36,6 +36,9 @@ export type Joker = {
 export interface Game {
   gameId: string;
   gameState: {
+    turn: string | null;
+    canDraw: boolean;
+    canDiscard: boolean;
     player1: {
       name: string;
       score: number;
@@ -45,6 +48,7 @@ export interface Game {
     };
     player2: {
       name: string;
+      num_of_cards_in_hand: number;
       score: number;
       red_threes: Card[];
       melds: (Card | Joker)[][];
@@ -56,7 +60,13 @@ export interface Game {
 export enum Type {
   SET,
   MODIFY,
+  SET_CURRENT_PLAYER,
   SET_SECOND_PLAYER,
+  EDIT_PLAYER_HAND,
+  EDIT_SECOND_PLAYER_HAND,
+  EDIT_PLAYER_RED_THREES,
+  EDIT_SECOND_PLAYER_RED_THREES,
+  EDIT_DISCARD_PILE_TOP_CARD,
 }
 
 export interface Action {
@@ -80,6 +90,26 @@ export const gameReducer = (state: Game, action: Action) => {
           ...payload,
         },
       };
+    case Type.SET_CURRENT_PLAYER:
+      if (payload === state.gameState.player1.name) {
+        return {
+          ...state,
+          gameState: {
+            ...state.gameState,
+            turn: payload,
+            canDraw: true,
+            canDiscard: false,
+          },
+        };
+      } else {
+        return {
+          ...state,
+          gameState: {
+            ...state.gameState,
+            turn: payload,
+          },
+        };
+      }
     case Type.SET_SECOND_PLAYER:
       return {
         ...state,
@@ -89,6 +119,58 @@ export const gameReducer = (state: Game, action: Action) => {
             ...state.gameState.player2,
             name: payload.name,
           },
+        },
+      };
+    case Type.EDIT_PLAYER_HAND:
+      return {
+        ...state,
+        gameState: {
+          ...state.gameState,
+          player1: {
+            ...state.gameState.player1,
+            hand: payload,
+          },
+        },
+      };
+    case Type.EDIT_SECOND_PLAYER_HAND:
+      return {
+        ...state,
+        gameState: {
+          ...state.gameState,
+          player2: {
+            ...state.gameState.player2,
+            num_of_cards_in_hand: payload,
+          },
+        },
+      };
+    case Type.EDIT_PLAYER_RED_THREES:
+      return {
+        ...state,
+        gameState: {
+          ...state.gameState,
+          player1: {
+            ...state.gameState.player1,
+            red_threes: payload,
+          },
+        },
+      };
+    case Type.EDIT_SECOND_PLAYER_RED_THREES:
+      return {
+        ...state,
+        gameState: {
+          ...state.gameState,
+          player2: {
+            ...state.gameState.player2,
+            red_threes: payload,
+          },
+        },
+      };
+    case Type.EDIT_DISCARD_PILE_TOP_CARD:
+      return {
+        ...state,
+        gameState: {
+          ...state.gameState,
+          discardPileTopCard: payload,
         },
       };
     default:
