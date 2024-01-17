@@ -35,6 +35,7 @@ const initalContext: Game = {
     turn: null,
     canDraw: false,
     canDiscard: false,
+    canMeld: false,
     player1: {
       name: "",
       hand: [],
@@ -144,6 +145,24 @@ export function GameContextProvider({
             type: Type.EDIT_DISCARD_PILE_TOP_CARD,
             payload: msg.discard_pile_top_card,
           });
+          break;
+        case "MELDED_CARDS":
+          console.log("Melded cards received");
+          if (msg.name === cookies.get("username")) {
+            dispatch({
+              type: Type.EDIT_PLAYER_MELDS,
+              payload: msg.melds,
+            });
+          } else {
+            dispatch({
+              type: Type.EDIT_SECOND_PLAYER_MELDS,
+              payload: msg.melds,
+            });
+          }
+          break;
+        case "MELD_ERROR":
+          alert(msg.message);
+
           break;
       }
     };

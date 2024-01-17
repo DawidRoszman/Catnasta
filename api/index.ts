@@ -4,7 +4,8 @@ import PocketBase from "pocketbase";
 import cors from "cors";
 import { games } from "./src/gameService.ts";
 import { ClientGame, GameState } from "./src/types/types.ts";
-import { discardCard, drawCard, startRound } from "./src/game.ts";
+import { addToMeld, checkIfIsFirstMeld, checkIfIsWildMeld, discardCard, drawCard, formatCardsForMelding, getMeldPoints, meldCards, startRound } from "./src/game.ts";
+import e from "express";
 
 const clientId = "mqttjs_server_" + Math.random().toString(16).slice(2, 8);
 const client = mqtt.connect("ws://broker.emqx.io:8083/mqtt", {
@@ -67,6 +68,14 @@ client.on("message", async (topic, message) => {
         break;
       case "DISCARD_CARD":
         discardCardDispatch(gameState, msg);
+        break;
+      case "MELD_CARDS":
+        console.log(msg)
+        meldCardDispatch(gameState, msg);
+        break;
+      case "ADD_TO_MELD":
+        console.log(msg)
+        dispatchAddToMeld(gameState, msg);
         break;
     }
   }
@@ -290,6 +299,11 @@ const discardCardDispatch = (gameState: GameState, msg: any) => {
     console.log("wrong turn");
     return;
   }
+  if(!msg.cardId) {
+    console.log("no card id");
+    return;
+  }
+  
   const player = msg.name === gameState.player1.name ? gameState.player1 : gameState.player2;
   discardCard(player.hand, gameState.discardPile, msg.cardId)
   console.log(gameState)
@@ -328,6 +342,147 @@ const discardCardDispatch = (gameState: GameState, msg: any) => {
     JSON.stringify({
       type: "TURN",
       current_player: newTurn,
+    })
+  );
+}
+
+const meldCardDispatch = (gameState: GameState, msg: any) => {
+  if (msg.name !== gameState.player1.name && msg.name !== gameState.player2.name) {
+    console.log("wrong player");
+    return;
+  }
+  if (msg.name === undefined) {
+    console.log("no name");
+    return;
+  }
+  if (gameState.turn !== msg.name) {
+    console.log("wrong turn");
+    return;
+  }
+  if(!msg.melds) {
+    console.log("no cards");
+    return;
+  }
+  const currPlayer = msg.name === gameState.player1.name ? gameState.player1 : gameState.player2;
+  const melds = formatCardsForMelding(currPlayer, msg.melds);
+  if (melds.length === 0) {
+    console.log("wrong cards");
+    client.publish(
+      `catnasta/game/${msg.id}/${msg.name}`,
+      JSON.stringify({
+        type: "MELD_ERROR",
+        msg: "Wrong cards",
+      })
+    );
+    return;
+  }
+  const meldPoints = melds.reduce((acc, meld) => acc + getMeldPoints(meld), 0);
+  // if (checkIfIsFirstMeld(currPlayer, meldPoints) === undefined) {
+  //   console.log("wrong meld");
+  //   client.publish(
+  //     `catnasta/game/${msg.id}/${msg.name}`,
+  //     JSON.stringify({
+  //       type: "MELD_ERROR",
+  //       message: "Not enough points for first meld",
+  //     })
+  //   );
+  //   return;
+  // }
+  melds.forEach((meld) => {
+    const error = meldCards(currPlayer.hand, currPlayer.melds, meld);
+    if (error !== undefined) {
+      console.log(error);
+      client.publish(
+        `catnasta/game/${msg.id}/${msg.name}`,
+        JSON.stringify({
+          type: "MELD_ERROR",
+          message: error.msg,
+        })
+      );
+      return;
+    }
+  });
+  client.publish(
+    `catnasta/game/${msg.id}/${msg.name}`,
+    JSON.stringify({
+      type: "HAND",
+      hand: currPlayer.hand,
+    })
+  );
+  client.publish(
+    `catnasta/game/${msg.id}`,
+    JSON.stringify({
+      type: "MELDED_CARDS",
+      name: currPlayer.name,
+      melds: currPlayer.melds,
+    })
+  );
+  client.publish(
+    `catnasta/game/${msg.id}/${currPlayer.name === gameState.player1.name ? gameState.player2.name : gameState.player1.name}`,
+    JSON.stringify({
+      type: "ENEMY_HAND",
+      enemy_hand: currPlayer.hand.length,
+    })
+  );
+  
+
+}
+
+const dispatchAddToMeld = (gameState: GameState, msg: any) => {
+  if (msg.name !== gameState.player1.name && msg.name !== gameState.player2.name) {
+    console.log("wrong player");
+    return;
+  }
+  if (msg.name === undefined) {
+    console.log("no name");
+    return;
+  }
+  if (gameState.turn !== msg.name) {
+    console.log("wrong turn");
+    return;
+  }
+  if(!msg.cardsIds) {
+    console.log("no cards");
+    return;
+  }
+  if(msg.meldId === undefined) {
+    console.log("no meld id");
+    return;
+  }
+  const currPlayer = msg.name === gameState.player1.name ? gameState.player1 : gameState.player2;
+  const cards = currPlayer.hand.filter(card => msg.cardsIds.includes(card.id));
+  const error = addToMeld(currPlayer, msg.meldId, cards);
+  if (error !== undefined){
+    console.log(error);
+    client.publish(
+      `catnasta/game/${msg.id}/${msg.name}`,
+      JSON.stringify({
+        type: "MELD_ERROR",
+        message: error.msg,
+      })
+    );
+    return;
+  }
+  client.publish(
+    `catnasta/game/${msg.id}/${msg.name}`,
+    JSON.stringify({
+      type: "HAND",
+      hand: currPlayer.hand,
+    })
+  );
+  client.publish(
+    `catnasta/game/${msg.id}`,
+    JSON.stringify({
+      type: "MELDED_CARDS",
+      name: currPlayer.name,
+      melds: currPlayer.melds,
+    })
+  );
+  client.publish(
+    `catnasta/game/${msg.id}/${currPlayer.name === gameState.player1.name ? gameState.player2.name : gameState.player1.name}`,
+    JSON.stringify({
+      type: "ENEMY_HAND",
+      enemy_hand: currPlayer.hand.length,
     })
   );
 }

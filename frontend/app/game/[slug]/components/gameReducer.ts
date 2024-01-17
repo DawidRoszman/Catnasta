@@ -39,6 +39,7 @@ export interface Game {
     turn: string | null;
     canDraw: boolean;
     canDiscard: boolean;
+    canMeld: boolean;
     player1: {
       name: string;
       score: number;
@@ -67,6 +68,8 @@ export enum Type {
   EDIT_PLAYER_RED_THREES,
   EDIT_SECOND_PLAYER_RED_THREES,
   EDIT_DISCARD_PILE_TOP_CARD,
+  EDIT_PLAYER_MELDS,
+  EDIT_SECOND_PLAYER_MELDS,
 }
 
 export interface Action {
@@ -99,6 +102,7 @@ export const gameReducer = (state: Game, action: Action) => {
             turn: payload,
             canDraw: true,
             canDiscard: false,
+            canMel: false,
           },
         };
       } else {
@@ -171,6 +175,28 @@ export const gameReducer = (state: Game, action: Action) => {
         gameState: {
           ...state.gameState,
           discardPileTopCard: payload,
+        },
+      };
+    case Type.EDIT_PLAYER_MELDS:
+      return {
+        ...state,
+        gameState: {
+          ...state.gameState,
+          player1: {
+            ...state.gameState.player1,
+            melds: payload,
+          },
+        },
+      };
+    case Type.EDIT_SECOND_PLAYER_MELDS:
+      return {
+        ...state,
+        gameState: {
+          ...state.gameState,
+          player2: {
+            ...state.gameState.player2,
+            melds: payload,
+          },
         },
       };
     default:

@@ -1,5 +1,5 @@
 import {Card, GameState, Joker, Player} from "./types/types.ts";
-import {getStartingCards, deck} from "./cards.ts";
+import {getStartingCards, deck, getCardPoints} from "./cards.ts";
 const MIN_CARDS_FOR_MELD = 3;
 
 export const startRound = (gameState: GameState): void => {
@@ -95,97 +95,97 @@ export const drawCard = (
   return card;
 };
 //
-// export const meldCards = (
-//   playerHand: (Card | Joker)[],
-//   playerMelds: (Card | Joker)[][],
-//   cardsToMeld: (Card | Joker)[],
-// ): void => {
-//   // Check if there are at least three cards to meld
-//   if (cardsToMeld.length < MIN_CARDS_FOR_MELD) {
-//     console.log("At least three cards are required to meld");
-//     return;
-//   }
-//
-//   // Check if there are at least two natural cards and at most three wild cards
-//   const wildCards = cardsToMeld.filter(
-//     (card) => card.rank === "2" || card.rank === "JOKER",
-//   );
-//   //Check for wild canasta
-//   if (wildCards.length === cardsToMeld.length) {
-//     console.log("Wild canasta");
-//     playMeld(cardsToMeld, playerHand, playerMelds);
-//     return;
-//   }
-//
-//   if (wildCards.length > 3 || wildCards.length > cardsToMeld.length - 2) {
-//     throw new Error(
-//       "A meld must have at least two natural cards and can have up to three wild cards",
-//     );
-//   }
-//
-//   // Check if all natural cards to meld have the same rank
-//   const naturalCards = cardsToMeld.filter(
-//     (card) => card.rank !== "2" && card.rank !== "JOKER",
-//   );
-//   const rank = naturalCards[0]?.rank;
-//   if (rank && !naturalCards.every((card) => card.rank === rank)) {
-//     console.log("All natural cards in a meld must have the same rank");
-//     return;
-//   }
-//
-//   playMeld(cardsToMeld, playerHand, playerMelds);
-// };
-//
-// export const playMeld = (
-//   cardsToMeld: (Card | Joker)[],
-//   playerHand: (Card | Joker)[],
-//   playerMelds: (Card | Joker)[][],
-// ) => {
-//   // Remove the cards to meld from the player's hand
-//   cardsToMeld.forEach((cardToMeld) => {
-//     const index = playerHand.findIndex(
-//       (card) => card.rank === cardToMeld.rank && card.suit === cardToMeld.suit,
-//     );
-//     if (index === -1) {
-//       console.log("Card to meld not found in player's hand");
-//       return;
-//     }
-//     playerHand.splice(index, 1);
-//   });
-//
-//   // Add the meld to the player's melds
-//   playerMelds.push(cardsToMeld);
-// };
-//
-// export const getMeldPoints = (meld: (Card | Joker)[]): number => {
-//   return (
-//     meld.map((card) => getCardPoints(card)).sort((a, b) => b - a)[0] *
-//     meld.length
-//   );
-// };
-//
-// export const getMinimumFirstMeldPoints = (score: number): number => {
-//   if (score < 0) {
-//     return 15;
-//   } else if (score < 1500) {
-//     return 50;
-//   } else if (score < 3000) {
-//     return 90;
-//   } else {
-//     return 120;
-//   }
-// };
-//
-// export const isFirstMeldAboveMinimum = (
-//   playerScore: number,
-//   meldPoints: number,
-// ): boolean => {
-//   const minimumPoints = getMinimumFirstMeldPoints(playerScore);
-//   return meldPoints >= minimumPoints;
-// };
-// export const getTotalMeldPoints = (melds: (Card | Joker)[][]): number => {
-//   return melds.reduce((sum, meld) => sum + getMeldPoints(meld), 0);
-// };
+export const meldCards = (
+  playerHand: (Card | Joker)[],
+  playerMelds: (Card | Joker)[][],
+  cardsToMeld: (Card | Joker)[],
+) => {
+  // Check if there are at least three cards to meld
+  if (cardsToMeld.length < MIN_CARDS_FOR_MELD) {
+    console.log("At least three cards are required to meld");
+    return {msg: "At least three cards are required to meld"};
+  }
+
+  // Check if there are at least two natural cards and at most three wild cards
+  const wildCards = cardsToMeld.filter(
+    (card) => card.rank === "2" || card.rank === "JOKER",
+  );
+  //Check for wild canasta
+  if (wildCards.length === cardsToMeld.length) {
+    console.log("Wild canasta");
+    playMeld(cardsToMeld, playerHand, playerMelds);
+    return;
+  }
+
+  if (wildCards.length > 3 || wildCards.length > cardsToMeld.length - 2) {
+    const msg = "A meld must have at least two natural cards and can have up to three wild cards"
+    console.log(msg);
+    return {msg};
+  }
+
+  // Check if all natural cards to meld have the same rank
+  const naturalCards = cardsToMeld.filter(
+    (card) => card.rank !== "2" && card.rank !== "JOKER",
+  );
+  const rank = naturalCards[0]?.rank;
+  if (rank && !naturalCards.every((card) => card.rank === rank)) {
+    console.log("All natural cards in a meld must have the same rank");
+    return {msg: "All natural cards in a meld must have the same rank"};
+  }
+
+  playMeld(cardsToMeld, playerHand, playerMelds);
+};
+
+export const playMeld = (
+  cardsToMeld: (Card | Joker)[],
+  playerHand: (Card | Joker)[],
+  playerMelds: (Card | Joker)[][],
+) => {
+  // Remove the cards to meld from the player's hand
+  cardsToMeld.forEach((cardToMeld) => {
+    const index = playerHand.findIndex(
+      (card) => card.rank === cardToMeld.rank && card.suit === cardToMeld.suit,
+    );
+    if (index === -1) {
+      console.log("Card to meld not found in player's hand");
+      return;
+    }
+    playerHand.splice(index, 1);
+  });
+
+  // Add the meld to the player's melds
+  playerMelds.push(cardsToMeld);
+};
+
+export const getMeldPoints = (meld: (Card | Joker)[]): number => {
+  return (
+    meld.map((card) => getCardPoints(card)).sort((a, b) => b - a)[0] *
+    meld.length
+  );
+};
+
+export const getMinimumFirstMeldPoints = (score: number): number => {
+  if (score < 0) {
+    return 15;
+  } else if (score < 1500) {
+    return 50;
+  } else if (score < 3000) {
+    return 90;
+  } else {
+    return 120;
+  }
+};
+
+export const isFirstMeldAboveMinimum = (
+  playerScore: number,
+  meldPoints: number,
+): boolean => {
+  const minimumPoints = getMinimumFirstMeldPoints(playerScore);
+  return meldPoints >= minimumPoints;
+};
+export const getTotalMeldPoints = (melds: (Card | Joker)[][]): number => {
+  return melds.reduce((sum, meld) => sum + getMeldPoints(meld), 0);
+};
 //
 // export const canPickUpPile = (
 //   playerHand: (Card | Joker)[],
@@ -417,38 +417,75 @@ export const drawCard = (
 //     }
 //   }
 // }
-//
-// const checkIfIsWildMeld = (cardsToMeld: (Card | Joker)[]) => {
-//   if (checkIfAllCardsAreWild(cardsToMeld)) {
-//     if (
-//       cardsToMeld.filter((card) => card.rank === "JOKER").length <
-//       cardsToMeld.filter((card) => card.rank === "2").length
-//     ) {
-//       console.log(
-//         "Invalid meld. Wild meld cannot have more Twos than Jokers. Try again.",
-//       );
-//       return true;
-//     }
-//   }
-//   return undefined;
-// };
-//
-// const checkIfAllCardsAreWild = (cardsToMeld: (Card | Joker)[]) => {
-//   return cardsToMeld.every(
-//     (card) => card.rank === "JOKER" || card.rank === "2",
-//   );
-// };
-//
-// const checkIfIsFirstMeld = (currentPlayer: Player, meldPoints: number) => {
-//   if (
-//     !isFirstMeldAboveMinimum(currentPlayer.score, meldPoints) &&
-//     currentPlayer.melds.length === 0
-//   ) {
-//     const minPoints = getMinimumFirstMeldPoints(currentPlayer.score);
-//     console.log(`Your first meld must be at least ${minPoints} points.`);
-//     return undefined;
-//   }
-// };
+
+export const checkIfIsWildMeld = (cardsToMeld: (Card | Joker)[]) => {
+  if (checkIfAllCardsAreWild(cardsToMeld)) {
+    if (
+      cardsToMeld.filter((card) => card.rank === "JOKER").length <
+      cardsToMeld.filter((card) => card.rank === "2").length
+    ) {
+      console.log(
+        "Invalid meld. Wild meld cannot have more Twos than Jokers. Try again.",
+      );
+      return true;
+    }
+  }
+  return undefined;
+};
+
+export const checkIfAllCardsAreWild = (cardsToMeld: (Card | Joker)[]) => {
+  return cardsToMeld.every(
+    (card) => card.rank === "JOKER" || card.rank === "2",
+  );
+};
+
+export const checkIfIsFirstMeld = (currentPlayer: Player, meldPoints: number) => {
+  if (
+    !isFirstMeldAboveMinimum(currentPlayer.score, meldPoints) &&
+    currentPlayer.melds.length === 0
+  ) {
+    const minPoints = getMinimumFirstMeldPoints(currentPlayer.score);
+    console.log(`Your first meld must be at least ${minPoints} points.`);
+    return undefined;
+  }
+};
+
+export const addToMeld = (currentPlayer: Player, meldId: number, cards: (Card | Joker)[]) => {
+  const meld = currentPlayer.melds[meldId];
+  if (meld === undefined) {
+    console.log("Invalid meld");
+    return {msg: "Invalid meld"};
+  }
+  const newMeld = [...meld, ...cards];
+  console.log(newMeld)
+  const wildCards = newMeld.filter(
+    (card) => card.rank === "2" || card.rank === "JOKER",
+  );
+  const naturalCards = newMeld.filter(
+    (card) => card.rank !== "2" && card.rank !== "JOKER",
+  );
+  console.log(wildCards)
+  console.log(naturalCards)
+  if (wildCards.length === newMeld.length) {
+    meld.push(...cards);
+    currentPlayer.hand = currentPlayer.hand.filter(card => !cards.includes(card))
+    return;
+  }
+  const rank = naturalCards[0]?.rank;
+  console.log(rank)
+  if (rank && !naturalCards.every((card) => card.rank === rank)) {
+    const msg = "All natural cards in a meld must have the same rank"
+    console.log(msg);
+    return {msg};
+  }
+  if (wildCards.length >= naturalCards.length) {
+    const msg = "You have to have more natural cards than wild cards in meld"
+    console.log(msg);
+    return {msg};
+  }
+  meld.push(...cards);
+  currentPlayer.hand = currentPlayer.hand.filter(card => !cards.includes(card))
+}
 //
 // async function promptPlayerToDiscard(
 //   currentPlayer: Player,
@@ -476,17 +513,19 @@ export const drawCard = (
 //     }
 //   }
 // }
-//
-// function formatCardsForMelding(
-//   currentPlayer: Player,
-//   cardIdsToBeMelded: string[][],
-// ) {
-//   return cardIdsToBeMelded.reduce((acc: (Card | Joker)[][], meld) => {
-//     const cardsToMeld = meld.map((id) => currentPlayer.hand[parseInt(id)]);
-//     acc.push(cardsToMeld);
-//     return acc;
-//   }, []);
-// }
+
+export function formatCardsForMelding(
+  currentPlayer: Player,
+  cardIdsToBeMelded: string[][],
+) {
+  return cardIdsToBeMelded.reduce((acc: (Card | Joker)[][], meld) => {
+    const cardsToMeld = currentPlayer.hand.filter((card) => {
+      return meld.includes(card.id);
+    });
+    acc.push(cardsToMeld);
+    return acc;
+  }, []);
+}
 export function discardCard(
   hand: (Card | Joker)[],
   cards: (Card | Joker)[],

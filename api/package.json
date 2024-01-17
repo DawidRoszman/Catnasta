@@ -2,7 +2,7 @@
   "name": "api",
   "version": "1.0.0",
   "description": "REST API for cardgame Catnasta",
-  "main": "index.js",
+  "main": "index.ts",
   "author": "Dawid Roszman",
   "license": "MIT",
   "dependencies": {
