@@ -35,7 +35,18 @@ export type Joker = {
 
 export interface Game {
   gameId: string;
+  gameResult: {
+    winner: {
+      name: string;
+      points: number;
+    } | null;
+    loser: {
+      name: string;
+      points: number;
+    } | null;
+  };
   gameState: {
+    gameOver: boolean;
     turn: string | null;
     canDraw: boolean;
     canDiscard: boolean;
@@ -55,6 +66,7 @@ export interface Game {
       melds: (Card | Joker)[][];
     };
     discardPileTopCard: Card | Joker | null;
+    stockCardCount: number;
   };
 }
 
@@ -70,6 +82,10 @@ export enum Type {
   EDIT_DISCARD_PILE_TOP_CARD,
   EDIT_PLAYER_MELDS,
   EDIT_SECOND_PLAYER_MELDS,
+  EDIT_STOCK_CARD_COUNT,
+  EDIT_GAME_OVER,
+  SET_GAME_RESULT,
+  UPDATE_SCORE,
 }
 
 export interface Action {
@@ -196,6 +212,42 @@ export const gameReducer = (state: Game, action: Action) => {
           player2: {
             ...state.gameState.player2,
             melds: payload,
+          },
+        },
+      };
+    case Type.EDIT_STOCK_CARD_COUNT:
+      return {
+        ...state,
+        gameState: {
+          ...state.gameState,
+          stockCardCount: payload,
+        },
+      };
+    case Type.EDIT_GAME_OVER:
+      return {
+        ...state,
+        gameState: {
+          ...state.gameState,
+          gameOver: payload,
+        },
+      };
+    case Type.SET_GAME_RESULT:
+      return {
+        ...state,
+        gameResult: payload,
+      };
+    case Type.UPDATE_SCORE:
+      return {
+        ...state,
+        gameState: {
+          ...state.gameState,
+          player1: {
+            ...state.gameState.player1,
+            score: payload.player1Score,
+          },
+          player2: {
+            ...state.gameState.player2,
+            score: payload.player2Score,
           },
         },
       };

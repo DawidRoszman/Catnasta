@@ -19,6 +19,7 @@ const DisplayPlayers = () => {
         >
           {gameContext?.gameState.player1.name}
         </span>
+        <span> Score: {gameContext?.gameState.player1.score}</span>
       </div>
       <div>
         Player2:{" "}

@@ -9,6 +9,7 @@ import {
 import { Action, Game, Type, gameReducer } from "./gameReducer";
 import client from "@/app/lib/mqtt";
 import { useCookies } from "next-client-cookies";
+import { useRouter } from "next/navigation";
 
 export const GameContext = createContext<Game | null>(null);
 export const GameDispatchContext = createContext<Dispatch<Action> | null>(null);
@@ -31,7 +32,12 @@ export function useGameDispatch() {
 
 const initalContext: Game = {
   gameId: "",
+  gameResult: {
+    winner: null,
+    loser: null,
+  },
   gameState: {
+    gameOver: false,
     turn: null,
     canDraw: false,
     canDiscard: false,
@@ -51,6 +57,7 @@ const initalContext: Game = {
       score: 0,
     },
     discardPileTopCard: null,
+    stockCardCount: -1,
   },
 };
 
@@ -62,6 +69,7 @@ export function GameContextProvider({
   gameId: string;
 }) {
   const cookies = useCookies();
+  const router = useRouter();
   initalContext.gameId = gameId;
   initalContext.gameState.player1.name = cookies.get("username")!;
   const [state, dispatch] = useReducer(gameReducer, initalContext);
@@ -99,6 +107,13 @@ export function GameContextProvider({
           dispatch({
             type: Type.SET_CURRENT_PLAYER,
             payload: msg.current_player,
+          });
+          break;
+        case "EDIT_STOCK_CARD_COUNT":
+          console.log("Stock card count received");
+          dispatch({
+            type: Type.EDIT_STOCK_CARD_COUNT,
+            payload: msg.stock_card_count,
           });
           break;
         case "TURN":
@@ -162,6 +177,41 @@ export function GameContextProvider({
           break;
         case "MELD_ERROR":
           alert(msg.message);
+          break;
+        case "UPDATE_SCORE":
+          console.log("Score updated");
+          if (msg.player1Score.name === cookies.get("username")) {
+            dispatch({
+              type: Type.UPDATE_SCORE,
+              payload: {
+                player1Score: msg.player1Score.score,
+                player2Score: msg.player2Score.score,
+              },
+            });
+          } else {
+            dispatch({
+              type: Type.UPDATE_SCORE,
+              payload: {
+                player1Score: msg.player2Score.score,
+                player2Score: msg.player1Score.score,
+              },
+            });
+          }
+          break;
+        case "GAME_END":
+          console.log("Game ended");
+          console.log(msg);
+          dispatch({
+            type: Type.SET_GAME_RESULT,
+            payload: {
+              winner: msg.winner,
+              loser: msg.loser,
+            },
+          });
+          dispatch({
+            type: Type.EDIT_GAME_OVER,
+            payload: true,
+          });
 
           break;
       }

@@ -32,6 +32,7 @@ export interface Player {
 
 export interface GameState {
   turn: string;
+  gameOver: boolean;
   player1: Player;
   player2: Player;
   discardPile: (Card | Joker)[];

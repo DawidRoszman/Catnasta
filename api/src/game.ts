@@ -55,19 +55,19 @@ export const revealFirstCard = (gameState: GameState) => {
   }
   while (
     gameState.discardPile.length === 0 ||
-    gameState.discardPile[gameState.discardPile.length - 1]?.rank.match(
-      /(JOKER|2)/,
-    ) ||
-    (gameState.discardPile[gameState.discardPile.length - 1]?.suit.match(
-      /(HEART|DIAMOND)/,
-    ) &&
-      gameState.discardPile[gameState.discardPile.length - 1].rank === "3")
+    gameState.discardPile[gameState.discardPile.length - 1]?.rank.match(/(JOKER|2)/) ||
+    (
+      gameState.discardPile[gameState.discardPile.length - 1]?.suit.match(/(HEART|DIAMOND)/) &&
+      gameState.discardPile[gameState.discardPile.length - 1]?.rank === "3"
+    )
   ) {
     const card = gameState.stock.shift();
     if (card === undefined) {
       throw new Error("Stock is empty");
     }
     gameState.discardPile.push(card);
+    console.log(gameState.discardPile)
+    console.log(gameState.stock)
   }
 };
 
@@ -159,7 +159,7 @@ export const playMeld = (
 
 export const getMeldPoints = (meld: (Card | Joker)[]): number => {
   return (
-    meld.map((card) => getCardPoints(card)).sort((a, b) => b - a)[0] *
+    meld.map((card) => getCardPoints(card)).sort((a, b) => a - b)[0] *
     meld.length
   );
 };
@@ -268,24 +268,54 @@ export const getTotalMeldPoints = (melds: (Card | Joker)[][]): number => {
 //   );
 // };
 //
-// export const calculatePlayerScore = (player: {
-//   hand: (Card | Joker)[];
-//   melds: (Card | Joker)[][];
-//   red_threes: (Card | Joker)[];
-//   name: string;
-// }): { name: string; score: number } => {
-//   const meldPoints = getTotalMeldPoints(player.melds);
-//
-//   const handPoints = player.hand.reduce(
-//     (sum, card) => sum + getCardPoints(card),
-//     0,
-//   );
-//
-//   const score = meldPoints - handPoints + player.red_threes.length * 100;
-//   // TODO: Calculate bonuses
-//
-//   return { name: player.name, score };
-// };
+export const calculatePlayerScore = (player: Player
+): { name: string; points: number } => {
+  const meldPoints = player.melds.flatMap(c => c).reduce(
+    (sum, card) => sum + getCardPoints(card),0);
+
+  const handPoints = player.hand.reduce(
+    (sum, card) => sum + getCardPoints(card),
+    0,
+  );
+
+  const playerHadCatnasta = player.melds.some((meld) => {
+    return (
+      meld.length >= 7
+    );
+  })
+
+  if (!playerHadCatnasta){
+    const points = -meldPoints - handPoints + player.red_threes.length * 100;
+    return { name: player.name, points };
+  }
+
+  const numOfNaturalCatnastas = player.melds.filter((meld) => {
+    return (
+      meld.length >= 7 && meld.every((card) => card.rank !== "2" && card.rank !== "JOKER")
+    );
+  }).length
+
+
+
+  const numOfMixedCatnastas = player.melds.filter((meld) => {
+    return (
+      meld.length >= 7 && meld.some((card) => card.rank === "2" || card.rank === "JOKER") && meld.some((card) => card.rank !== "2" && card.rank !== "JOKER")
+    );
+  }).length
+
+  const numOfWildCatnastas = player.melds.filter((meld) => {
+    return (
+      meld.length >= 7 && meld.every((card) => card.rank === "2" || card.rank === "JOKER")
+    );
+  }).length
+
+  const playerFinished = player.hand.length === 0
+
+  const points = meldPoints - handPoints + player.red_threes.length * 100 + numOfNaturalCatnastas * 500 + numOfMixedCatnastas * 300 + numOfWildCatnastas * 1000 + (playerFinished ? 100 : 0);
+  // TODO: Calculate bonuses
+
+  return { name: player.name, points };
+};
 //
 // export const playRound = async (gameState: GameState): Promise<void> => {
 //   let currentPlayer = gameState.player1;

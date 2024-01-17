@@ -62,15 +62,16 @@ const MqttChat = () => {
         </div>
         <div className="collapse-content grid place-items-center">
           <div className="border-2 border-primary rounded-xl p-5">
-            <div className="overflow-y-scroll h-96">
-              {messages.map((message, id) => {
+            <div className="overflow-y-scroll flex flex-col-reverse h-96">
+              {messages.toReversed().map((message, id) => {
                 return (
                   <div key={id}>
                     <div
-                      className={`chat ${message.username === cookies.get("username")
-                        ? "chat-end"
-                        : "chat-start"
-                        }`}
+                      className={`chat ${
+                        message.username === cookies.get("username")
+                          ? "chat-end"
+                          : "chat-start"
+                      }`}
                     >
                       <div className="chat-header">{message.username}</div>
                       <div className="chat-bubble">{message.message}</div>

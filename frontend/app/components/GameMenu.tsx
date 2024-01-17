@@ -1,7 +1,7 @@
 "use client";
 import axios from "axios";
 import { useCookies } from "next-client-cookies";
-import { redirect } from "next/navigation";
+import { useRouter } from "next/navigation";
 import React from "react";
 import client from "../lib/mqtt";
 
@@ -72,7 +72,11 @@ const GameMenu = () => {
       <div className="divider">OR</div>
       <button
         className="btn btn-wide btn-outline btn-primary"
-        onClick={() => document.getElementById("my_modal_1")!.showModal()}
+        onClick={() =>
+          (
+            document.getElementById("my_modal_1") as HTMLDialogElement
+          ).showModal()
+        }
       >
         Join an existing game
       </button>

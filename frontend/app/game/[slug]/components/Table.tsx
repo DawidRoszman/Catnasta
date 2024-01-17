@@ -144,6 +144,11 @@ const Table = () => {
 
   return (
     <div>
+      {gameContext?.gameState.stockCardCount !== -1 && (
+        <div className="grid place-items-center">
+          Cards left in stock: {gameContext?.gameState.stockCardCount}
+        </div>
+      )}
       <div className="flex justify-between">
         <div className="flex flex-col gap-4">
           <div>
@@ -173,6 +178,20 @@ const Table = () => {
               );
             })}
           </div>
+          {gameContext?.gameState.player1.red_threes.length !== 0 && (
+            <div className="flex flex-col gap-4">
+              <div>
+                Red threes:
+                {gameContext?.gameState.player1.red_threes.map((card) => {
+                  return (
+                    <div className="text-error" key={card.id}>
+                      {card.rank} {card.suit}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           {cardsToMeld.map((cards, id) => {
             return (
               <div key={id} className="tooltip" data-tip="Cancel meld">
@@ -206,6 +225,7 @@ const Table = () => {
             );
           })}
           {gameContext?.gameState.player1.melds.map((cards, id) => {
+            const isCatnasta = cards.length >= 7;
             return (
               <div
                 key={id}
@@ -219,7 +239,9 @@ const Table = () => {
                   {cards.map((card) => {
                     return (
                       <div
-                        className="join-item badge-success p-1 w-36"
+                        className={`join-item p-1 w-36 ${
+                          isCatnasta ? "badge-warning" : "badge-success"
+                        }`}
                         key={card.id}
                       >
                         {card.rank} {card.suit}
@@ -231,13 +253,15 @@ const Table = () => {
             );
           })}
         </div>
-        <div className="flex flex-col align-middle justify-center">
-          Discard Pile:
-          <span className="text-center">
-            {gameContext?.gameState.discardPileTopCard?.rank}{" "}
-            {gameContext?.gameState.discardPileTopCard?.suit}
-          </span>
-        </div>
+        {gameContext?.gameState.discardPileTopCard !== null && (
+          <div className="flex flex-col align-middle justify-center">
+            Discard Pile:
+            <span className="text-center">
+              {gameContext?.gameState.discardPileTopCard?.rank}{" "}
+              {gameContext?.gameState.discardPileTopCard?.suit}
+            </span>
+          </div>
+        )}
 
         <div className="flex flex-col gap-3">
           <div>
@@ -247,13 +271,33 @@ const Table = () => {
               return <div key={id}>{id + 1}. Back of the card</div>;
             })}
           </div>
+          {gameContext?.gameState.player2.red_threes.length !== 0 && (
+            <div className="flex flex-col gap-4">
+              <div>
+                Red threes:
+                {gameContext?.gameState.player2.red_threes.map((card) => {
+                  return (
+                    <div className="text-error" key={card.id}>
+                      {card.rank} {card.suit}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {gameContext?.gameState.player2.melds.map((cards, id) => {
+            const isCatnasta = cards.length >= 7;
             return (
-              <div key={id}>
-                Melded cards:
+              <div key={id} className="join join-vertical text-center">
                 {cards.map((card) => {
                   return (
-                    <div key={card.id}>
+                    <div
+                      className={`join-item p-1 w-36 ${
+                        isCatnasta ? "badge-warning" : "badge-success"
+                      }`}
+                      key={card.id}
+                    >
                       {card.rank} {card.suit}
                     </div>
                   );

@@ -9,6 +9,7 @@ const cardsWithoutJoker: Card[] = Array.from({ length: 52 }, (_, i) => {
 
 export const deck: (Card | Joker)[] = [
   ...cardsWithoutJoker,
+  ...cardsWithoutJoker,
   { id: randomUUID(), rank: "JOKER", suit: Suit.CLUB },
   { id: randomUUID(), rank: "JOKER", suit: Suit.DIAMOND },
   { id: randomUUID(), rank: "JOKER", suit: Suit.HEART },

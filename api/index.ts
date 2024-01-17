@@ -4,7 +4,7 @@ import PocketBase from "pocketbase";
 import cors from "cors";
 import { games } from "./src/gameService.ts";
 import { ClientGame, GameState } from "./src/types/types.ts";
-import { addToMeld, checkIfIsFirstMeld, checkIfIsWildMeld, discardCard, drawCard, formatCardsForMelding, getMeldPoints, meldCards, startRound } from "./src/game.ts";
+import { addToMeld, calculatePlayerScore, checkIfIsFirstMeld, checkIfIsWildMeld, discardCard, drawCard, formatCardsForMelding, getMeldPoints, meldCards, startRound } from "./src/game.ts";
 import e from "express";
 
 const clientId = "mqttjs_server_" + Math.random().toString(16).slice(2, 8);
@@ -103,6 +103,7 @@ app.post("/create_game", async (req: Request, res: Response) => {
     gameId: id,
     gameState: {
       turn: "",
+      gameOver: false,
       player1: {
         name: name,
         hand: [],
@@ -226,6 +227,13 @@ function startRoundDispatch(gameState: GameState, msg: any) {
       discard_pile_top_card: gameState.discardPile[0],
     })
   );
+  client.publish(
+    `catnasta/game/${msg.id}`,
+    JSON.stringify({
+      type: "EDIT_STOCK_CARD_COUNT",
+      stock_card_count: gameState.stock.length,
+    })
+  );
 }
 
 const drawCardDispatch = (gameState: GameState, msg: any) => {
@@ -243,10 +251,13 @@ const drawCardDispatch = (gameState: GameState, msg: any) => {
     return;
   }
   if (gameState.stock.length === 0) {
-    throw new Error("Stock is empty");
+    console.log("no cards in stock");
   }
   const currPlayer = msg.name === gameState.player1.name ? gameState.player1 : gameState.player2;
   drawCard(gameState.stock, currPlayer)
+  if(gameState.stock.length === 0) {
+    gameState.gameOver = true;
+  }
   client.publish(
     `catnasta/game/${msg.id}/${msg.name}`,
     JSON.stringify({
@@ -284,6 +295,13 @@ const drawCardDispatch = (gameState: GameState, msg: any) => {
       enemy_hand: currPlayer.hand.length,
     })
   );
+  client.publish(
+    `catnasta/game/${msg.id}`,
+    JSON.stringify({
+      type: "EDIT_STOCK_CARD_COUNT",
+      stock_card_count: gameState.stock.length,
+    })
+  );
 }
 
 const discardCardDispatch = (gameState: GameState, msg: any) => {
@@ -309,6 +327,11 @@ const discardCardDispatch = (gameState: GameState, msg: any) => {
   console.log(gameState)
   const newTurn = player.name === gameState.player1.name ? gameState.player2.name : gameState.player1.name;
   gameState.turn = newTurn;
+  const p1Score = calculatePlayerScore(gameState.player1);
+  const p2Score = calculatePlayerScore(gameState.player2);
+  gameState.player1.score = p1Score.points;
+  gameState.player2.score = p2Score.points;
+
   client.publish(
     `catnasta/game/${msg.id}/${msg.name}`,
     JSON.stringify({
@@ -344,6 +367,31 @@ const discardCardDispatch = (gameState: GameState, msg: any) => {
       current_player: newTurn,
     })
   );
+  client.publish(
+    `catnasta/game/${msg.id}`,
+    JSON.stringify({
+      type: "UPDATE_SCORE",
+      player1Score: {name: gameState.player1.name, score: gameState.player1.score},
+      player2Score: {name: gameState.player2.name, score: gameState.player2.score},
+    })
+  );
+  if (player.hand.length === 0 || gameState.gameOver) {
+    const winner = p1Score.points > p2Score.points ? gameState.player1.name : gameState.player2.name;
+    const loser = p1Score.points > p2Score.points ? gameState.player2.name : gameState.player1.name;
+        pb.collection("games").create({
+      gameId: msg.id,
+      gameState
+    })
+    client.publish(
+      `catnasta/game/${msg.id}`,
+      JSON.stringify({
+        type: "GAME_END",
+        winner: winner === gameState.player1.name ? p1Score : p2Score,
+        loser: loser === gameState.player1.name ? p1Score : p2Score,
+      })
+    );
+    return;
+  }
 }
 
 const meldCardDispatch = (gameState: GameState, msg: any) => {
@@ -377,17 +425,29 @@ const meldCardDispatch = (gameState: GameState, msg: any) => {
     return;
   }
   const meldPoints = melds.reduce((acc, meld) => acc + getMeldPoints(meld), 0);
-  // if (checkIfIsFirstMeld(currPlayer, meldPoints) === undefined) {
-  //   console.log("wrong meld");
-  //   client.publish(
-  //     `catnasta/game/${msg.id}/${msg.name}`,
-  //     JSON.stringify({
-  //       type: "MELD_ERROR",
-  //       message: "Not enough points for first meld",
-  //     })
-  //   );
-  //   return;
-  // }
+  if (meldPoints < 50 && currPlayer.melds.length === 0) {
+    console.log("wrong meld");
+    client.publish(
+      `catnasta/game/${msg.id}/${msg.name}`,
+      JSON.stringify({
+        type: "MELD_ERROR",
+        message: "You need to have at least 50 points in your first melds",
+      })
+    );
+    return;
+  }
+  //check if player will have at least one card in hand after melding
+  if (currPlayer.hand.length - melds.flatMap(c => c).length === 0) {
+    console.log("wrong meld");
+    client.publish(
+      `catnasta/game/${msg.id}/${msg.name}`,
+      JSON.stringify({
+        type: "MELD_ERROR",
+        message: "You need to have at least one card in hand after melding",
+      })
+    );
+    return;
+  }
   melds.forEach((meld) => {
     const error = meldCards(currPlayer.hand, currPlayer.melds, meld);
     if (error !== undefined) {
