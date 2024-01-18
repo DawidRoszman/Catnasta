@@ -4,9 +4,10 @@ import SetUsername from "./components/SetUsername";
 import Loading from "./components/Loading";
 import MqttChat from "./components/MqttChat";
 import GameMenu from "./components/GameMenu";
+import { api } from "./lib/api";
 
 export default async function Home() {
-  const data = await axios.get("http://localhost:5000/");
+  const data = await axios.get(api + "/");
   const text = data.data;
   return (
     <Suspense fallback={<Loading />}>
