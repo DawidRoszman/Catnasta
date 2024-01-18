@@ -1,6 +1,6 @@
 import mqtt from "mqtt";
 const clientId = "mqttjs_" + Math.random().toString(16).slice(2, 8);
-const host = "wss://broker.emqx.io:8883/mqtt";
+const host = "wss://broker.emqx.io:8084/mqtt";
 const client = mqtt.connect(host);
 client.options.keepalive = 60;
 client.options.clientId = clientId;
