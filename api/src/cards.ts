@@ -1,5 +1,5 @@
 import { v4 as randomUUID } from "uuid";
-import { Card, Joker, Rank, Suit } from "./types/types.ts";
+import { Card, Joker, Rank, Suit } from "./types/types";
 const cardsWithoutJoker: Card[] = Array.from({ length: 52 }, (_, i) => {
   const rank = Object.values(Rank)[i % 13];
   const suit = Object.values(Suit)[Math.floor(i / 13)];
@@ -26,10 +26,10 @@ export const shuffle = (deck: (Card | Joker)[]) => {
 };
 
 export const getStartingCards = (deck: (Card | Joker)[]) => {
-  const shuffled = shuffle(deck).map(card => {
+  const shuffled = shuffle(deck).map((card) => {
     return { ...card, id: randomUUID() };
   });
-  return shuffled
+  return shuffled;
 };
 
 export const getCardPoints = (card: Card | Joker): number => {

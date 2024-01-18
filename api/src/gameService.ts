@@ -1,3 +1,3 @@
-import { Game } from "./types/types.ts";
+import { Game } from "./types/types";
 
 export const games: Game[] = [];

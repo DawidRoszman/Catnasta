@@ -2,13 +2,24 @@ import express, { Express, Request, Response } from "express";
 import mqtt from "mqtt";
 import PocketBase from "pocketbase";
 import cors from "cors";
-import { games } from "./src/gameService.ts";
-import { ClientGame, GameState } from "./src/types/types.ts";
-import { addToMeld, calculatePlayerScore, checkIfIsFirstMeld, checkIfIsWildMeld, discardCard, drawCard, formatCardsForMelding, getMeldPoints, meldCards, startRound } from "./src/game.ts";
+import { games } from "./src/gameService";
+import { ClientGame, GameState } from "./src/types/types";
+import {
+  addToMeld,
+  calculatePlayerScore,
+  checkIfIsFirstMeld,
+  checkIfIsWildMeld,
+  discardCard,
+  drawCard,
+  formatCardsForMelding,
+  getMeldPoints,
+  meldCards,
+  startRound,
+} from "./src/game";
 import e from "express";
 
 const clientId = "mqttjs_server_" + Math.random().toString(16).slice(2, 8);
-const client = mqtt.connect("ws://broker.emqx.io:8083/mqtt", {
+const client = mqtt.connect("wss://broker.emqx.io:8084/mqtt", {
   clientId: clientId,
 });
 
@@ -70,11 +81,11 @@ client.on("message", async (topic, message) => {
         discardCardDispatch(gameState, msg);
         break;
       case "MELD_CARDS":
-        console.log(msg)
+        console.log(msg);
         meldCardDispatch(gameState, msg);
         break;
       case "ADD_TO_MELD":
-        console.log(msg)
+        console.log(msg);
         dispatchAddToMeld(gameState, msg);
         break;
     }
@@ -166,21 +177,22 @@ app.listen(port, () => {
 });
 function startRoundDispatch(gameState: GameState, msg: any) {
   startRound(gameState);
-  const playerTurn = Math.random() < 0.5 ? gameState.player1.name : gameState.player2.name
+  const playerTurn =
+    Math.random() < 0.5 ? gameState.player1.name : gameState.player2.name;
   gameState.turn = playerTurn;
   client.publish(
     `catnasta/game/${msg.id}`,
     JSON.stringify({
       type: "GAME_START",
       current_player: gameState.turn,
-    })
+    }),
   );
   client.publish(
     `catnasta/game/${msg.id}/${gameState.player1.name}`,
     JSON.stringify({
       type: "HAND",
       hand: gameState.player1.hand,
-    })
+    }),
   );
   client.publish(
     `catnasta/game/${msg.id}`,
@@ -188,21 +200,21 @@ function startRoundDispatch(gameState: GameState, msg: any) {
       type: "RED_THREES",
       player: gameState.player1.name,
       red_threes: gameState.player1.red_threes,
-    })
+    }),
   );
   client.publish(
     `catnasta/game/${msg.id}/${gameState.player1.name}`,
     JSON.stringify({
       type: "ENEMY_HAND",
       enemy_hand: gameState.player2.hand.length,
-    })
+    }),
   );
   client.publish(
     `catnasta/game/${msg.id}/${gameState.player2.name}`,
     JSON.stringify({
       type: "HAND",
       hand: gameState.player2.hand,
-    })
+    }),
   );
   client.publish(
     `catnasta/game/${msg.id}`,
@@ -210,14 +222,14 @@ function startRoundDispatch(gameState: GameState, msg: any) {
       type: "RED_THREES",
       player: gameState.player2.name,
       red_threes: gameState.player2.red_threes,
-    })
+    }),
   );
   client.publish(
     `catnasta/game/${msg.id}/${gameState.player2.name}`,
     JSON.stringify({
       type: "ENEMY_HAND",
       enemy_hand: gameState.player1.hand.length,
-    })
+    }),
   );
 
   client.publish(
@@ -225,19 +237,22 @@ function startRoundDispatch(gameState: GameState, msg: any) {
     JSON.stringify({
       type: "DISCARD_PILE_TOP_CARD",
       discard_pile_top_card: gameState.discardPile[0],
-    })
+    }),
   );
   client.publish(
     `catnasta/game/${msg.id}`,
     JSON.stringify({
       type: "EDIT_STOCK_CARD_COUNT",
       stock_card_count: gameState.stock.length,
-    })
+    }),
   );
 }
 
 const drawCardDispatch = (gameState: GameState, msg: any) => {
-  if (msg.name !== gameState.player1.name && msg.name !== gameState.player2.name) {
+  if (
+    msg.name !== gameState.player1.name &&
+    msg.name !== gameState.player2.name
+  ) {
     console.log("wrong player");
     return;
   }
@@ -245,7 +260,8 @@ const drawCardDispatch = (gameState: GameState, msg: any) => {
     console.log("no name");
     return;
   }
-  const player = msg.name === gameState.player1.name ? gameState.player1 : gameState.player2;
+  const player =
+    msg.name === gameState.player1.name ? gameState.player1 : gameState.player2;
   if (player.name !== gameState.turn) {
     console.log("wrong turn");
     return;
@@ -253,9 +269,10 @@ const drawCardDispatch = (gameState: GameState, msg: any) => {
   if (gameState.stock.length === 0) {
     console.log("no cards in stock");
   }
-  const currPlayer = msg.name === gameState.player1.name ? gameState.player1 : gameState.player2;
-  drawCard(gameState.stock, currPlayer)
-  if(gameState.stock.length === 0) {
+  const currPlayer =
+    msg.name === gameState.player1.name ? gameState.player1 : gameState.player2;
+  drawCard(gameState.stock, currPlayer);
+  if (gameState.stock.length === 0) {
     gameState.gameOver = true;
   }
   client.publish(
@@ -263,7 +280,7 @@ const drawCardDispatch = (gameState: GameState, msg: any) => {
     JSON.stringify({
       type: "HAND",
       hand: player.hand,
-    })
+    }),
   );
   //send red threes
   client.publish(
@@ -272,40 +289,43 @@ const drawCardDispatch = (gameState: GameState, msg: any) => {
       type: "RED_THREES",
       player: gameState.player1.name,
       red_threes: gameState.player1.red_threes,
-    })
+    }),
   );
   client.publish(
     `catnasta/game/${msg.id}`,
     JSON.stringify({
       type: "DISCARD_PILE_TOP_CARD",
       discard_pile_top_card: gameState.discardPile[0],
-    })
+    }),
   );
   client.publish(
     `catnasta/game/${msg.id}`,
     JSON.stringify({
       type: "STOCK",
       stock: gameState.stock.length,
-    })
+    }),
   );
   client.publish(
     `catnasta/game/${msg.id}/${currPlayer.name === gameState.player1.name ? gameState.player2.name : gameState.player1.name}`,
     JSON.stringify({
       type: "ENEMY_HAND",
       enemy_hand: currPlayer.hand.length,
-    })
+    }),
   );
   client.publish(
     `catnasta/game/${msg.id}`,
     JSON.stringify({
       type: "EDIT_STOCK_CARD_COUNT",
       stock_card_count: gameState.stock.length,
-    })
+    }),
   );
-}
+};
 
 const discardCardDispatch = (gameState: GameState, msg: any) => {
-  if (msg.name !== gameState.player1.name && msg.name !== gameState.player2.name) {
+  if (
+    msg.name !== gameState.player1.name &&
+    msg.name !== gameState.player2.name
+  ) {
     console.log("wrong player");
     return;
   }
@@ -317,15 +337,19 @@ const discardCardDispatch = (gameState: GameState, msg: any) => {
     console.log("wrong turn");
     return;
   }
-  if(!msg.cardId) {
+  if (!msg.cardId) {
     console.log("no card id");
     return;
   }
-  
-  const player = msg.name === gameState.player1.name ? gameState.player1 : gameState.player2;
-  discardCard(player.hand, gameState.discardPile, msg.cardId)
-  console.log(gameState)
-  const newTurn = player.name === gameState.player1.name ? gameState.player2.name : gameState.player1.name;
+
+  const player =
+    msg.name === gameState.player1.name ? gameState.player1 : gameState.player2;
+  discardCard(player.hand, gameState.discardPile, msg.cardId);
+  console.log(gameState);
+  const newTurn =
+    player.name === gameState.player1.name
+      ? gameState.player2.name
+      : gameState.player1.name;
   gameState.turn = newTurn;
   const p1Score = calculatePlayerScore(gameState.player1);
   const p2Score = calculatePlayerScore(gameState.player2);
@@ -337,65 +361,80 @@ const discardCardDispatch = (gameState: GameState, msg: any) => {
     JSON.stringify({
       type: "HAND",
       hand: player.hand,
-    })
+    }),
   );
   client.publish(
     `catnasta/game/${msg.id}`,
     JSON.stringify({
       type: "DISCARD_PILE_TOP_CARD",
       discard_pile_top_card: gameState.discardPile.reverse()[0],
-    })
+    }),
   );
   client.publish(
     `catnasta/game/${msg.id}`,
     JSON.stringify({
       type: "STOCK",
       stock: gameState.stock.length,
-    })
+    }),
   );
   client.publish(
     `catnasta/game/${msg.id}/${newTurn}`,
     JSON.stringify({
       type: "ENEMY_HAND",
       enemy_hand: player.hand.length,
-    })
+    }),
   );
   client.publish(
     `catnasta/game/${msg.id}`,
     JSON.stringify({
       type: "TURN",
       current_player: newTurn,
-    })
+    }),
   );
   client.publish(
     `catnasta/game/${msg.id}`,
     JSON.stringify({
       type: "UPDATE_SCORE",
-      player1Score: {name: gameState.player1.name, score: gameState.player1.score},
-      player2Score: {name: gameState.player2.name, score: gameState.player2.score},
-    })
+      player1Score: {
+        name: gameState.player1.name,
+        score: gameState.player1.score,
+      },
+      player2Score: {
+        name: gameState.player2.name,
+        score: gameState.player2.score,
+      },
+    }),
   );
   if (player.hand.length === 0 || gameState.gameOver) {
-    const winner = p1Score.points > p2Score.points ? gameState.player1.name : gameState.player2.name;
-    const loser = p1Score.points > p2Score.points ? gameState.player2.name : gameState.player1.name;
-        pb.collection("games").create({
+    const winner =
+      p1Score.points > p2Score.points
+        ? gameState.player1.name
+        : gameState.player2.name;
+    const loser =
+      p1Score.points > p2Score.points
+        ? gameState.player2.name
+        : gameState.player1.name;
+    pb.collection("games").create({
       gameId: msg.id,
-      gameState
-    })
+      gameState,
+    });
     client.publish(
       `catnasta/game/${msg.id}`,
       JSON.stringify({
         type: "GAME_END",
         winner: winner === gameState.player1.name ? p1Score : p2Score,
         loser: loser === gameState.player1.name ? p1Score : p2Score,
-      })
+      }),
     );
     return;
   }
-}
+};
 
 const meldCardDispatch = (gameState: GameState, msg: any) => {
-  if (msg.name !== gameState.player1.name && msg.name !== gameState.player2.name) {
+  if (
+    msg.name !== gameState.player1.name &&
+    msg.name !== gameState.player2.name
+  ) {
     console.log("wrong player");
     return;
   }
@@ -407,11 +446,12 @@ const meldCardDispatch = (gameState: GameState, msg: any) => {
     console.log("wrong turn");
     return;
   }
-  if(!msg.melds) {
+  if (!msg.melds) {
     console.log("no cards");
     return;
   }
-  const currPlayer = msg.name === gameState.player1.name ? gameState.player1 : gameState.player2;
+  const currPlayer =
+    msg.name === gameState.player1.name ? gameState.player1 : gameState.player2;
   const melds = formatCardsForMelding(currPlayer, msg.melds);
   if (melds.length === 0) {
     console.log("wrong cards");
@@ -420,7 +460,7 @@ const meldCardDispatch = (gameState: GameState, msg: any) => {
       JSON.stringify({
         type: "MELD_ERROR",
         msg: "Wrong cards",
-      })
+      }),
     );
     return;
   }
@@ -432,19 +472,19 @@ const meldCardDispatch = (gameState: GameState, msg: any) => {
       JSON.stringify({
         type: "MELD_ERROR",
         message: "You need to have at least 50 points in your first melds",
-      })
+      }),
     );
     return;
   }
   //check if player will have at least one card in hand after melding
-  if (currPlayer.hand.length - melds.flatMap(c => c).length === 0) {
+  if (currPlayer.hand.length - melds.flatMap((c) => c).length === 0) {
     console.log("wrong meld");
     client.publish(
       `catnasta/game/${msg.id}/${msg.name}`,
       JSON.stringify({
         type: "MELD_ERROR",
         message: "You need to have at least one card in hand after melding",
-      })
+      }),
     );
     return;
   }
@@ -457,7 +497,7 @@ const meldCardDispatch = (gameState: GameState, msg: any) => {
         JSON.stringify({
           type: "MELD_ERROR",
           message: error.msg,
-        })
+        }),
       );
       return;
     }
@@ -467,7 +507,7 @@ const meldCardDispatch = (gameState: GameState, msg: any) => {
     JSON.stringify({
       type: "HAND",
       hand: currPlayer.hand,
-    })
+    }),
   );
   client.publish(
     `catnasta/game/${msg.id}`,
@@ -475,21 +515,22 @@ const meldCardDispatch = (gameState: GameState, msg: any) => {
       type: "MELDED_CARDS",
       name: currPlayer.name,
       melds: currPlayer.melds,
-    })
+    }),
   );
   client.publish(
     `catnasta/game/${msg.id}/${currPlayer.name === gameState.player1.name ? gameState.player2.name : gameState.player1.name}`,
     JSON.stringify({
       type: "ENEMY_HAND",
       enemy_hand: currPlayer.hand.length,
-    })
+    }),
   );
-  
-
-}
+};
 
 const dispatchAddToMeld = (gameState: GameState, msg: any) => {
-  if (msg.name !== gameState.player1.name && msg.name !== gameState.player2.name) {
+  if (
+    msg.name !== gameState.player1.name &&
+    msg.name !== gameState.player2.name
+  ) {
     console.log("wrong player");
     return;
   }
@@ -501,25 +542,28 @@ const dispatchAddToMeld = (gameState: GameState, msg: any) => {
     console.log("wrong turn");
     return;
   }
-  if(!msg.cardsIds) {
+  if (!msg.cardsIds) {
     console.log("no cards");
     return;
   }
-  if(msg.meldId === undefined) {
+  if (msg.meldId === undefined) {
     console.log("no meld id");
     return;
   }
-  const currPlayer = msg.name === gameState.player1.name ? gameState.player1 : gameState.player2;
-  const cards = currPlayer.hand.filter(card => msg.cardsIds.includes(card.id));
+  const currPlayer =
+    msg.name === gameState.player1.name ? gameState.player1 : gameState.player2;
+  const cards = currPlayer.hand.filter((card) =>
+    msg.cardsIds.includes(card.id),
+  );
   const error = addToMeld(currPlayer, msg.meldId, cards);
-  if (error !== undefined){
+  if (error !== undefined) {
     console.log(error);
     client.publish(
       `catnasta/game/${msg.id}/${msg.name}`,
       JSON.stringify({
         type: "MELD_ERROR",
         message: error.msg,
-      })
+      }),
     );
     return;
   }
@@ -528,7 +572,7 @@ const dispatchAddToMeld = (gameState: GameState, msg: any) => {
     JSON.stringify({
       type: "HAND",
       hand: currPlayer.hand,
-    })
+    }),
   );
   client.publish(
     `catnasta/game/${msg.id}`,
@@ -536,13 +580,14 @@ const dispatchAddToMeld = (gameState: GameState, msg: any) => {
       type: "MELDED_CARDS",
       name: currPlayer.name,
       melds: currPlayer.melds,
-    })
+    }),
   );
   client.publish(
     `catnasta/game/${msg.id}/${currPlayer.name === gameState.player1.name ? gameState.player2.name : gameState.player1.name}`,
     JSON.stringify({
       type: "ENEMY_HAND",
       enemy_hand: currPlayer.hand.length,
-    })
+    }),
   );
-}
+};
+
