@@ -18,7 +18,10 @@ const MqttChat = () => {
 
     const getMessages = async () => {
       const response = await axios.get(api + "/chat");
-      const messages = response.data.map((message: any) => {
+      const data = response.data;
+      console.log(data);
+
+      const messages = data.map((message: any) => {
         return {
           username: message.username,
           message: message.message,
