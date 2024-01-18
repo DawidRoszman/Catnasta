@@ -4,18 +4,19 @@ import { useCookies } from "next-client-cookies";
 import { useRouter } from "next/navigation";
 import React from "react";
 import client from "../lib/mqtt";
+import { api } from "../lib/api";
 
 const GameMenu = () => {
   const [gameId, setGameId] = React.useState("");
   const cookies = useCookies();
   const createGame = async () => {
-    const response = await axios.post("http://localhost:5000/create_game", {
+    const response = await axios.post(api + "/create_game", {
       name: cookies.get("username"),
     });
     window.location.href = "/game/" + response.data.id;
   };
   const joinGame = async () => {
-    const response = await axios.put("http://localhost:5000/join_game", {
+    const response = await axios.put(api + "/join_game", {
       id: gameId,
       name: cookies.get("username"),
     });

@@ -3,6 +3,7 @@ import React, { useEffect } from "react";
 import client from "../lib/mqtt";
 import axios from "axios";
 import { useCookies } from "next-client-cookies";
+import { api } from "../lib/api";
 interface Message {
   username: string;
   message: string;
@@ -16,7 +17,7 @@ const MqttChat = () => {
     client.subscribe("catnasta/chat");
 
     const getMessages = async () => {
-      const response = await axios.get("http://localhost:5000/chat");
+      const response = await axios.get(api + "/chat");
       const messages = response.data.map((message: any) => {
         return {
           username: message.username,
