@@ -17,11 +17,7 @@ const MqttChat = () => {
     client.subscribe("catnasta/chat");
 
     const getMessages = async () => {
-      const response = await axios.get(api + "/chat", {
-        headers: {
-          "ngrok-skip-browser-warning": "69420",
-        },
-      });
+      const response = await axios.get(api + "/chat");
       const data = response.data;
       console.log(data);
 

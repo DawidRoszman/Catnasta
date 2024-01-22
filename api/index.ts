@@ -2,6 +2,8 @@ import express, { Express, Request, Response } from "express";
 import mqtt from "mqtt";
 import PocketBase from "pocketbase";
 import cors from "cors";
+import fs from "fs";
+import https from "https";
 import { games } from "./src/gameService";
 import { ClientGame, GameState } from "./src/types/types";
 import {
@@ -171,10 +173,17 @@ app.put("/join_game", async (req: Request, res: Response) => {
   }
   res.send({ msg: "Game not found" });
 });
-
-app.listen(port, () => {
-  console.log(`[server]: Server is running at http://localhost:${port}`);
-});
+https
+  .createServer(
+    {
+      key: fs.readFileSync("./eu.dawidroszman.key"),
+      cert: fs.readFileSync("./eu.dawidroszman.cert.pem"),
+    },
+    app,
+  )
+  .listen(port, () => {
+    console.log(`[server]: Server is running at http://localhost:${port}`);
+  });
 function startRoundDispatch(gameState: GameState, msg: any) {
   startRound(gameState);
   const playerTurn =
@@ -590,4 +599,3 @@ const dispatchAddToMeld = (gameState: GameState, msg: any) => {
     }),
   );
 };
-
