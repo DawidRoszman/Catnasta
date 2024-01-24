@@ -1,17 +1,17 @@
 import axios from "axios";
 import { Suspense } from "react";
-import SetUsername from "./components/SetUsername";
 import Loading from "./components/Loading";
 import MqttChat from "./components/MqttChat";
 import GameMenu from "./components/GameMenu";
 import { api } from "./lib/api";
+import Auth from "./components/Auth";
 
 export default async function Home() {
   const data = await axios.get(api + "/");
   const text = data.data;
   return (
     <Suspense fallback={<Loading />}>
-      <SetUsername />
+      <Auth />
       <div className="hero min-h-screen bg-base-200">
         <div className="hero-content text-center">
           <div className="max-w-md">

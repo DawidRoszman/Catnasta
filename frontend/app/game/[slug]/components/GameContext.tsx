@@ -8,8 +8,8 @@ import {
 } from "react";
 import { Action, Game, Type, gameReducer } from "./gameReducer";
 import client from "@/app/lib/mqtt";
-import { useCookies } from "next-client-cookies";
 import { useRouter } from "next/navigation";
+import { useUserContext } from "@/app/components/UserContext";
 
 export const GameContext = createContext<Game | null>(null);
 export const GameDispatchContext = createContext<Dispatch<Action> | null>(null);
@@ -68,22 +68,35 @@ export function GameContextProvider({
   children: React.ReactNode;
   gameId: string;
 }) {
-  const cookies = useCookies();
   const router = useRouter();
+  const userContext = useUserContext();
+  if (userContext === null) {
+    router.replace("/");
+    return null;
+  }
   initalContext.gameId = gameId;
-  initalContext.gameState.player1.name = cookies.get("username")!;
+  initalContext.gameState.player1.name = userContext?.username;
   const [state, dispatch] = useReducer(gameReducer, initalContext);
   useEffect(() => {
-    client.on("connect", () => {
-      console.log("connected");
-      client.subscribe(`catnasta/game/${gameId}`);
-      client.subscribe(`catnasta/game/${gameId}/${cookies.get("username")}`);
+    console.log("Username", userContext.username);
+    console.log("connected");
+    client.subscribe(`catnasta/game/${gameId}`);
+    client.subscribe(`catnasta/game/${gameId}/${userContext.username}`);
+    client.publish(
+      "catnasta/game",
+      JSON.stringify({
+        id: gameId,
+        name: userContext.username,
+        type: "PLAYER_JOINED",
+      }),
+    );
+    client.on("disconnect", () => {
       client.publish(
         "catnasta/game",
         JSON.stringify({
+          type: "PLAYER_LEFT",
           id: gameId,
-          name: cookies.get("username"),
-          type: "PLAYER_JOINED",
+          name: userContext.username,
         }),
       );
     });
@@ -96,7 +109,7 @@ export function GameContextProvider({
             type: Type.SET_SECOND_PLAYER,
             payload: {
               name:
-                cookies.get("username")! === msg.player1
+                userContext.username === msg.player1
                   ? msg.player2
                   : msg.player1,
             },
@@ -108,6 +121,9 @@ export function GameContextProvider({
             type: Type.SET_CURRENT_PLAYER,
             payload: msg.current_player,
           });
+          break;
+        case "PLAYER_LEFT":
+          console.log("Player left");
           break;
         case "EDIT_STOCK_CARD_COUNT":
           console.log("Stock card count received");
@@ -133,7 +149,7 @@ export function GameContextProvider({
         case "RED_THREES":
           console.log("Red threes received");
           console.log(msg.red_threes);
-          if (msg.player === cookies.get("username")) {
+          if (msg.player === userContext.username) {
             dispatch({
               type: Type.EDIT_PLAYER_RED_THREES,
               payload: msg.red_threes,
@@ -163,7 +179,7 @@ export function GameContextProvider({
           break;
         case "MELDED_CARDS":
           console.log("Melded cards received");
-          if (msg.name === cookies.get("username")) {
+          if (msg.name === userContext.username) {
             dispatch({
               type: Type.EDIT_PLAYER_MELDS,
               payload: msg.melds,
@@ -180,7 +196,7 @@ export function GameContextProvider({
           break;
         case "UPDATE_SCORE":
           console.log("Score updated");
-          if (msg.player1Score.name === cookies.get("username")) {
+          if (msg.player1Score.name === userContext.username) {
             dispatch({
               type: Type.UPDATE_SCORE,
               payload: {
@@ -226,8 +242,8 @@ export function GameContextProvider({
     //     }),
     //   );
     // });
-  }, [gameId, cookies]);
-  if (cookies.get("username") === undefined) {
+  }, [gameId]);
+  if (userContext.username === undefined) {
     window.location.href = "/";
     return null;
   }

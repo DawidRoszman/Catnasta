@@ -1,18 +1,21 @@
 "use client";
 import React from "react";
 import { useGameContext } from "./GameContext";
-import { useCookies } from "next-client-cookies";
+import { useUserContext } from "@/app/components/UserContext";
 
 const DisplayPlayers = () => {
   const gameContext = useGameContext();
-  const cookies = useCookies();
+  const userContext = useUserContext();
+  if (gameContext === null || userContext === null) {
+    return <div>Loading...</div>;
+  }
   return (
     <div className="flex justify-between">
       <div>
         Player1:{" "}
         <span
           className={
-            gameContext?.gameState.turn === cookies.get("username")
+            gameContext?.gameState.turn === userContext.username
               ? "text-primary"
               : ""
           }
@@ -25,7 +28,7 @@ const DisplayPlayers = () => {
         Player2:{" "}
         <span
           className={
-            gameContext?.gameState.turn !== cookies.get("username")
+            gameContext?.gameState.turn !== userContext.username
               ? "text-primary"
               : ""
           }

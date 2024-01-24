@@ -1,33 +1,98 @@
 import express, { Express, Request, Response } from "express";
 import mqtt from "mqtt";
-import PocketBase from "pocketbase";
 import cors from "cors";
 import fs from "fs";
 import https from "https";
-import { games } from "./src/gameService";
-import { ClientGame, GameState } from "./src/types/types";
 import {
-  addToMeld,
-  calculatePlayerScore,
-  checkIfIsFirstMeld,
-  checkIfIsWildMeld,
-  discardCard,
-  drawCard,
-  formatCardsForMelding,
-  getMeldPoints,
-  meldCards,
-  startRound,
-} from "./src/game";
-import e from "express";
+  discardCardDispatch,
+  dispatchAddToMeld,
+  drawCardDispatch,
+  games,
+  meldCardDispatch,
+  startRoundDispatch,
+} from "./src/gameService";
+import { MongoClient, ObjectId, ServerApiVersion } from "mongodb";
+import jwt from "jsonwebtoken";
+import bcrypt from "bcrypt";
+
+require("dotenv").config();
 
 const clientId = "mqttjs_server_" + Math.random().toString(16).slice(2, 8);
 const client = mqtt.connect("wss://broker.emqx.io:8084/mqtt", {
   clientId: clientId,
 });
 
-const pb = new PocketBase("http://127.0.0.1:8090");
-pb.admins.authWithPassword("dawidroszman@gmail.com", "ypjTRaf!s6K7H:x");
+const uri = process.env.MONGO_URI || "";
 
+const mongoClient = new MongoClient(uri, {
+  serverApi: {
+    version: ServerApiVersion.v1,
+    strict: true,
+    deprecationErrors: true,
+  },
+});
+
+async function run() {
+  try {
+    // Connect the client to the server	(optional starting in v4.7)
+    await mongoClient.connect();
+    // Send a ping to confirm a successful connection
+    await mongoClient.db("admin").command({ ping: 1 });
+    console.log(
+      "Pinged your deployment. You successfully connected to MongoDB!",
+    );
+  } finally {
+    // Ensures that the client will close when you finish/error
+    await mongoClient.close();
+  }
+}
+run().catch((err) => {
+  console.dir(err);
+  fs.appendFileSync("log.json", JSON.stringify(err));
+});
+
+function generateAccessToken(username: string) {
+  return jwt.sign(
+    {
+      exp: Math.floor(Date.now() / 1000) + 60 * 60,
+      data: username,
+    },
+    process.env.TOKEN_SECRET as string,
+  );
+}
+function authenticateTokenMqtt(msg: any) {
+  if (msg.token === undefined) {
+    return;
+  }
+  jwt.verify(
+    msg.token,
+    process.env.TOKEN_SECRET as string,
+    (err: any, user: any) => {
+      if (err) return;
+      msg.username = user.data;
+    },
+  );
+}
+function authenticateToken(req: Request, res: Response, next: any) {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
+
+  if (token == null) return res.sendStatus(401);
+
+  jwt.verify(
+    token,
+    process.env.TOKEN_SECRET as string,
+    (err: any, user: any) => {
+      console.log(err);
+
+      if (err) return res.sendStatus(403);
+
+      req.body.user = user;
+
+      next();
+    },
+  );
+}
 client.publish("catnasta", "Hello mqtt");
 
 const app: Express = express();
@@ -41,9 +106,14 @@ client.subscribe("catnasta/game");
 client.on("message", async (topic, message) => {
   if (topic === "catnasta/chat") {
     const msg = JSON.parse(message.toString());
-    pb.collection("chat").create({
+    if (!msg.username || !msg.message) {
+      return;
+    }
+    await mongoClient.connect();
+    await mongoClient.db("catnasta").collection("chat").insertOne({
+      id: msg.id,
       username: msg.username,
-      message: msg.msg,
+      message: msg.message,
     });
   }
   if (topic === "catnasta/game") {
@@ -73,43 +143,387 @@ client.on("message", async (topic, message) => {
           }),
         );
         if (gameState.player1.name && gameState.player2.name) {
-          startRoundDispatch(gameState, msg);
+          startRoundDispatch(client, gameState, msg);
         }
         break;
+      case "PLAYER_LEFT":
+        client.publish(
+          `catnasta/game/${msg.id}`,
+          JSON.stringify({
+            type: "PLAYER_LEFT",
+            player: msg.name,
+          }),
+        );
       case "DRAW_FROM_STOCK":
-        drawCardDispatch(gameState, msg);
+        drawCardDispatch(client, gameState, msg);
         break;
       case "DISCARD_CARD":
-        discardCardDispatch(gameState, msg);
+        discardCardDispatch(client, gameState, msg);
         break;
       case "MELD_CARDS":
         console.log(msg);
-        meldCardDispatch(gameState, msg);
+        meldCardDispatch(client, gameState, msg);
         break;
       case "ADD_TO_MELD":
         console.log(msg);
-        dispatchAddToMeld(gameState, msg);
+        dispatchAddToMeld(client, gameState, msg);
         break;
     }
   }
 });
 
+app.post("/register", async (req: Request, res: Response) => {
+  const username: string = req.body.username;
+  const password: string = req.body.password;
+  if (!username) {
+    return res.send({ msg: "Please enter a username" });
+  }
+  if (!password) {
+    return res.send({ msg: "Please enter a password" });
+  }
+  bcrypt.genSalt(10, function (err, salt) {
+    bcrypt.hash(password, salt, async function (err, hash) {
+      await mongoClient.connect();
+      const query = mongoClient.db("catnasta").collection("users").findOne({
+        username: username,
+      });
+      const user = await query;
+      if (user !== null) {
+        return res.send({ msg: "Username already taken" });
+      }
+      await mongoClient.db("catnasta").collection("users").insertOne({
+        username: username,
+        password: hash,
+      });
+      const token = generateAccessToken(username);
+      return res.send({ token: token });
+    });
+  });
+});
+
+app.post("/login", async (req: Request, res: Response) => {
+  const username: string = req.body.username;
+  const password: string = req.body.password;
+  if (!username) {
+    return res.send({ msg: "Please enter a username" });
+  }
+  if (!password) {
+    return res.send({ msg: "Please enter a password" });
+  }
+  await mongoClient.connect();
+  const query = mongoClient
+    .db("catnasta")
+    .collection("users")
+    .findOne({ username: username });
+  const user = await query;
+  if (user === null) {
+    return res.send({ msg: "Wrong username or password" });
+  }
+  bcrypt.compare(password, user.password, function (err, result) {
+    if (result) {
+      const token = generateAccessToken(username);
+      return res.send({ token: token });
+    } else {
+      return res.send({ msg: "Wrong username or password" });
+    }
+  });
+});
+
+app.delete(
+  "/chat/delete/:id",
+  authenticateToken,
+  async (req: Request, res: Response) => {
+    try {
+      const id = req.params.id;
+      console.log(id);
+      await mongoClient.connect();
+      const query = mongoClient.db("catnasta").collection("chat").findOne({
+        id: id,
+      });
+      const message = await query;
+      if (message === null) {
+        return res.send({ msg: "Message not found" });
+      }
+      if (
+        message.username !== req.body.user.data &&
+        req.body.user.data !== "admin"
+      ) {
+        return res.send({ msg: "You can only delete your own messages" });
+      }
+      await mongoClient.db("catnasta").collection("chat").deleteOne({ id: id });
+      return res.send({ msg: "Message deleted" });
+    } catch (err) {
+      return res.send({ msg: "Message not found" });
+    }
+  },
+);
+
+app.put(
+  "/chat/update/:id",
+  authenticateToken,
+  async (req: Request, res: Response) => {
+    try {
+      const id = req.params.id;
+      const message = req.body.message;
+      await mongoClient.connect();
+      const query = mongoClient.db("catnasta").collection("chat").findOne({
+        id: id,
+      });
+      const msg = await query;
+      if (msg === null) {
+        return res.send({ msg: "Message not found" });
+      }
+      if (
+        msg.username !== req.body.user.data ||
+        req.body.user.data !== "admin"
+      ) {
+        return res.send({ msg: "You can only edit your own messages" });
+      }
+      await mongoClient
+        .db("catnasta")
+        .collection("chat")
+        .updateOne({ id: id }, { $set: { message: message } });
+      return res.send({ msg: "Message updated" });
+    } catch (err) {
+      return res.send({ msg: "Message not found" });
+    }
+  },
+);
+
+app.post("/chat", authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const message = req.body.message;
+    await mongoClient.connect();
+    await mongoClient.db("catnasta").collection("chat").insertOne({
+      username: req.body.user,
+      message: message,
+    });
+  } catch (error) {}
+});
+
 app.get("/chat", async (req: Request, res: Response) => {
-  const chat = await pb.collection("chat").getList();
-  const messages = chat.items;
-  res.send(messages);
+  await mongoClient.connect();
+  const query = mongoClient.db("catnasta").collection("chat").find();
+  const chat = await query.toArray();
+  return res.send(chat);
+});
+
+app.get("/chat/search", async (req: Request, res: Response) => {
+  const search = req.query.search;
+  if (!search) {
+    return res.send({ msg: "Please enter a search term" });
+  }
+  await mongoClient.connect();
+  const query = mongoClient
+    .db("catnasta")
+    .collection("chat")
+    .find({
+      message: { $regex: `.*${search}.*` as string },
+    });
+  const result = await query.toArray();
+  return res.send(result);
 });
 
 app.get("/", (req: Request, res: Response) => {
-  res.send("Welcome to Catnasta");
+  return res.send("Welcome to Catnasta");
+});
+
+app.get("/users", authenticateToken, async (req: Request, res: Response) => {
+  const user = req.body.user.data;
+  if (user !== "admin") {
+    return res.send({ msg: "You are not authorized to view this page" });
+  }
+  await mongoClient.connect();
+  const query = mongoClient.db("catnasta").collection("users").find();
+  const users = await query.toArray();
+  return res.send(users);
+});
+
+app.get("/user", authenticateToken, async (req: Request, res: Response) => {
+  const user = req.body.user.data;
+  await mongoClient.connect();
+  const query = mongoClient.db("catnasta").collection("users").findOne({
+    username: user,
+  });
+  const result = await query;
+  if (result === null) {
+    return res.send({ msg: "User not found" });
+  }
+  return res.send(result.username);
+});
+
+app.get(
+  "/user/isAdmin",
+  authenticateToken,
+  async (req: Request, res: Response) => {
+    const user = req.body.user.data;
+    if (user !== "admin") {
+      return res.send({ isAdmin: false });
+    }
+    return res.send({ isAdmin: true });
+  },
+);
+//dwa
+
+app.get(
+  "/users/:id",
+  authenticateToken,
+  async (req: Request, res: Response) => {
+    const user = req.body.user.data;
+    if (user !== "admin") {
+      return res.send({ msg: "You are not authorized to view this page" });
+    }
+    const id = req.params.id;
+    await mongoClient.connect();
+    const query = mongoClient
+      .db("catnasta")
+      .collection("users")
+      .findOne({ _id: new ObjectId(id) });
+    const result = await query;
+    if (result === null) {
+      return res.send({ msg: "User not found" });
+    }
+    return res.send(result);
+  },
+);
+
+app.delete(
+  "/users/:id",
+  authenticateToken,
+  async (req: Request, res: Response) => {
+    const user = req.body.user.data;
+    if (user !== "admin") {
+      return res.send({ msg: "You are not authorized to view this page" });
+    }
+    const id = req.params.id;
+    await mongoClient.connect();
+    const query = mongoClient
+      .db("catnasta")
+      .collection("users")
+      .findOne({ _id: new ObjectId(id) });
+    const result = await query;
+    if (result === null) {
+      return res.send({ msg: "User not found" });
+    }
+    mongoClient
+      .db("catnasta")
+      .collection("users")
+      .deleteOne({ _id: new ObjectId(id) });
+    return res.send({ msg: "User deleted" });
+  },
+);
+
+app.put(
+  "/user/edit_password",
+  authenticateToken,
+  async (req: Request, res: Response) => {
+    const user = req.body.user.data;
+    const oldPassword = req.body.oldPassword;
+    const newPassword = req.body.newPassword;
+    if (!newPassword || !oldPassword) {
+      return res.send({ msg: "Please enter an old password and new password" });
+    }
+    await mongoClient.connect();
+    const query = mongoClient
+      .db("catnasta")
+      .collection("users")
+      .findOne({ username: user });
+    const result = await query;
+    if (result === null) {
+      return res.send({ msg: "User not found" });
+    }
+    bcrypt.compare(oldPassword, result.password, function (err, result) {
+      if (result) {
+        bcrypt.genSalt(10, function (err, salt) {
+          bcrypt.hash(newPassword, salt, async function (err, hash) {
+            await mongoClient
+              .db("catnasta")
+              .collection("users")
+              .updateOne({ username: user }, { $set: { password: hash } });
+            return res.send({ msg: "Password changed" });
+          });
+        });
+      } else {
+        return res.send({ msg: "Wrong password" });
+      }
+    });
+  },
+);
+
+app.put("/admin/user/edit/:id", authenticateToken, async (req, res) => {
+  const user = req.body.user.data;
+  if (user !== "admin") {
+    return res.send({ msg: "You are not authorized to view this page" });
+  }
+  const id = req.params.id;
+  const newUsername = req.body.newUsername;
+  const query = mongoClient
+    .db("catnasta")
+    .collection("users")
+    .findOne({
+      _id: new ObjectId(id),
+    });
+  const result = await query;
+  if (result === null) {
+    return res.send({ msg: "User not found" });
+  }
+  const query2 = mongoClient.db("catnasta").collection("users").findOne({
+    username: newUsername,
+  });
+  const result2 = await query2;
+  if (result2 !== null) {
+    return res.send({ msg: "Username already taken" });
+  }
+  mongoClient
+    .db("catnasta")
+    .collection("users")
+    .updateOne(
+      {
+        _id: new ObjectId(id),
+      },
+      { $set: { username: newUsername } },
+    );
+});
+
+app.get("/games", authenticateToken, async (req: Request, res: Response) => {
+  const user = req.body.user.data;
+  if (user !== "admin") {
+    return res.send({ msg: "You are not authorized to view this page" });
+  }
+  await mongoClient.connect();
+  const query = mongoClient.db("catnasta").collection("games").find();
+  const games = await query.toArray();
+  return res.send(games);
+});
+
+app.delete("/games/:id", authenticateToken, async (req, res) => {
+  const user = req.body.user.data;
+  if (user !== "admin") {
+    return res.send({ msg: "You are not authorized to view this page" });
+  }
+  const id = req.params.id;
+  await mongoClient.connect();
+  const query = mongoClient
+    .db("catnasta")
+    .collection("games")
+    .findOne({
+      _id: new ObjectId(id),
+    });
+  const result = await query;
+  if (result === null) {
+    return res.send({ msg: "Game not found" });
+  }
+  mongoClient
+    .db("catnasta")
+    .collection("games")
+    .deleteOne({ _id: new ObjectId(id) });
+  return res.send({ msg: "Game deleted" });
 });
 
 app.post("/create_game", async (req: Request, res: Response) => {
   const name: string = req.body.name;
-  // random id for game lenght 6 can be characters and numbers
-
   if (!name) {
-    res.send("Please enter a name");
+    return res.send({ msg: "Please log in to create game" });
   }
   const id = Math.random().toString(36).substring(2, 8).toUpperCase();
   const game = {
@@ -136,466 +550,50 @@ app.post("/create_game", async (req: Request, res: Response) => {
     },
   };
   games.push(game);
-  res.send({ id: game.gameId });
+  return res.send({ id: game.gameId });
 });
 
 app.put("/join_game", async (req: Request, res: Response) => {
   const id: string = req.body.id.toUpperCase();
   const name = req.body.name;
   if (!id) {
-    res.send("Please enter a game id");
+    return res.send({ msg: "Please enter a game id" });
   }
   if (!name) {
-    res.send("Please enter a name");
+    return res.send({ msg: "Please log in to join game" });
   }
-  console.log(id);
   const game = games.find((game) => game.gameId === id);
   if (game === undefined) {
-    res.send({ msg: "Game not found" });
-    return;
+    return res.send({ msg: "Game not found" });
   }
-  console.log(game);
   const { gameState } = game;
   if (gameState.player1.name && gameState.player2.name) {
-    res.send({ msg: "Game is full" });
+    return res.send({ msg: "Game is full" });
   }
   if (gameState.player1.name && !gameState.player2.name) {
     if (gameState.player1.name === name) {
-      res.send({ msg: "Name already taken" });
-      return;
+      return res.send({ msg: "Name already taken" });
     }
     const updatedGame = { ...game };
     updatedGame.gameState.player2.name = name;
     games.map((game) => {
       if (game.gameId === id) return updatedGame;
     });
-    res.send({ id: id });
+    return res.send({ id: id });
   }
-  res.send({ msg: "Game not found" });
+  return res.send({ msg: "Game not found" });
 });
-https
-  .createServer(
-    {
-      key: fs.readFileSync("./eu.dawidroszman.key"),
-      cert: fs.readFileSync("./eu.dawidroszman.cert.pem"),
-    },
-    app,
-  )
-  .listen(port, () => {
-    console.log(`[server]: Server is running at http://localhost:${port}`);
-  });
-function startRoundDispatch(gameState: GameState, msg: any) {
-  startRound(gameState);
-  const playerTurn =
-    Math.random() < 0.5 ? gameState.player1.name : gameState.player2.name;
-  gameState.turn = playerTurn;
-  client.publish(
-    `catnasta/game/${msg.id}`,
-    JSON.stringify({
-      type: "GAME_START",
-      current_player: gameState.turn,
-    }),
-  );
-  client.publish(
-    `catnasta/game/${msg.id}/${gameState.player1.name}`,
-    JSON.stringify({
-      type: "HAND",
-      hand: gameState.player1.hand,
-    }),
-  );
-  client.publish(
-    `catnasta/game/${msg.id}`,
-    JSON.stringify({
-      type: "RED_THREES",
-      player: gameState.player1.name,
-      red_threes: gameState.player1.red_threes,
-    }),
-  );
-  client.publish(
-    `catnasta/game/${msg.id}/${gameState.player1.name}`,
-    JSON.stringify({
-      type: "ENEMY_HAND",
-      enemy_hand: gameState.player2.hand.length,
-    }),
-  );
-  client.publish(
-    `catnasta/game/${msg.id}/${gameState.player2.name}`,
-    JSON.stringify({
-      type: "HAND",
-      hand: gameState.player2.hand,
-    }),
-  );
-  client.publish(
-    `catnasta/game/${msg.id}`,
-    JSON.stringify({
-      type: "RED_THREES",
-      player: gameState.player2.name,
-      red_threes: gameState.player2.red_threes,
-    }),
-  );
-  client.publish(
-    `catnasta/game/${msg.id}/${gameState.player2.name}`,
-    JSON.stringify({
-      type: "ENEMY_HAND",
-      enemy_hand: gameState.player1.hand.length,
-    }),
-  );
-
-  client.publish(
-    `catnasta/game/${msg.id}`,
-    JSON.stringify({
-      type: "DISCARD_PILE_TOP_CARD",
-      discard_pile_top_card: gameState.discardPile[0],
-    }),
-  );
-  client.publish(
-    `catnasta/game/${msg.id}`,
-    JSON.stringify({
-      type: "EDIT_STOCK_CARD_COUNT",
-      stock_card_count: gameState.stock.length,
-    }),
-  );
-}
-
-const drawCardDispatch = (gameState: GameState, msg: any) => {
-  if (
-    msg.name !== gameState.player1.name &&
-    msg.name !== gameState.player2.name
-  ) {
-    console.log("wrong player");
-    return;
-  }
-  if (msg.name === undefined) {
-    console.log("no name");
-    return;
-  }
-  const player =
-    msg.name === gameState.player1.name ? gameState.player1 : gameState.player2;
-  if (player.name !== gameState.turn) {
-    console.log("wrong turn");
-    return;
-  }
-  if (gameState.stock.length === 0) {
-    console.log("no cards in stock");
-  }
-  const currPlayer =
-    msg.name === gameState.player1.name ? gameState.player1 : gameState.player2;
-  drawCard(gameState.stock, currPlayer);
-  if (gameState.stock.length === 0) {
-    gameState.gameOver = true;
-  }
-  client.publish(
-    `catnasta/game/${msg.id}/${msg.name}`,
-    JSON.stringify({
-      type: "HAND",
-      hand: player.hand,
-    }),
-  );
-  //send red threes
-  client.publish(
-    `catnasta/game/${msg.id}`,
-    JSON.stringify({
-      type: "RED_THREES",
-      player: gameState.player1.name,
-      red_threes: gameState.player1.red_threes,
-    }),
-  );
-  client.publish(
-    `catnasta/game/${msg.id}`,
-    JSON.stringify({
-      type: "DISCARD_PILE_TOP_CARD",
-      discard_pile_top_card: gameState.discardPile[0],
-    }),
-  );
-  client.publish(
-    `catnasta/game/${msg.id}`,
-    JSON.stringify({
-      type: "STOCK",
-      stock: gameState.stock.length,
-    }),
-  );
-  client.publish(
-    `catnasta/game/${msg.id}/${currPlayer.name === gameState.player1.name ? gameState.player2.name : gameState.player1.name}`,
-    JSON.stringify({
-      type: "ENEMY_HAND",
-      enemy_hand: currPlayer.hand.length,
-    }),
-  );
-  client.publish(
-    `catnasta/game/${msg.id}`,
-    JSON.stringify({
-      type: "EDIT_STOCK_CARD_COUNT",
-      stock_card_count: gameState.stock.length,
-    }),
-  );
-};
-
-const discardCardDispatch = (gameState: GameState, msg: any) => {
-  if (
-    msg.name !== gameState.player1.name &&
-    msg.name !== gameState.player2.name
-  ) {
-    console.log("wrong player");
-    return;
-  }
-  if (msg.name === undefined) {
-    console.log("no name");
-    return;
-  }
-  if (gameState.turn !== msg.name) {
-    console.log("wrong turn");
-    return;
-  }
-  if (!msg.cardId) {
-    console.log("no card id");
-    return;
-  }
-
-  const player =
-    msg.name === gameState.player1.name ? gameState.player1 : gameState.player2;
-  discardCard(player.hand, gameState.discardPile, msg.cardId);
-  console.log(gameState);
-  const newTurn =
-    player.name === gameState.player1.name
-      ? gameState.player2.name
-      : gameState.player1.name;
-  gameState.turn = newTurn;
-  const p1Score = calculatePlayerScore(gameState.player1);
-  const p2Score = calculatePlayerScore(gameState.player2);
-  gameState.player1.score = p1Score.points;
-  gameState.player2.score = p2Score.points;
-
-  client.publish(
-    `catnasta/game/${msg.id}/${msg.name}`,
-    JSON.stringify({
-      type: "HAND",
-      hand: player.hand,
-    }),
-  );
-  client.publish(
-    `catnasta/game/${msg.id}`,
-    JSON.stringify({
-      type: "DISCARD_PILE_TOP_CARD",
-      discard_pile_top_card: gameState.discardPile.reverse()[0],
-    }),
-  );
-  client.publish(
-    `catnasta/game/${msg.id}`,
-    JSON.stringify({
-      type: "STOCK",
-      stock: gameState.stock.length,
-    }),
-  );
-  client.publish(
-    `catnasta/game/${msg.id}/${newTurn}`,
-    JSON.stringify({
-      type: "ENEMY_HAND",
-      enemy_hand: player.hand.length,
-    }),
-  );
-  client.publish(
-    `catnasta/game/${msg.id}`,
-    JSON.stringify({
-      type: "TURN",
-      current_player: newTurn,
-    }),
-  );
-  client.publish(
-    `catnasta/game/${msg.id}`,
-    JSON.stringify({
-      type: "UPDATE_SCORE",
-      player1Score: {
-        name: gameState.player1.name,
-        score: gameState.player1.score,
-      },
-      player2Score: {
-        name: gameState.player2.name,
-        score: gameState.player2.score,
-      },
-    }),
-  );
-  if (player.hand.length === 0 || gameState.gameOver) {
-    const winner =
-      p1Score.points > p2Score.points
-        ? gameState.player1.name
-        : gameState.player2.name;
-    const loser =
-      p1Score.points > p2Score.points
-        ? gameState.player2.name
-        : gameState.player1.name;
-    pb.collection("games").create({
-      gameId: msg.id,
-      gameState,
-    });
-    client.publish(
-      `catnasta/game/${msg.id}`,
-      JSON.stringify({
-        type: "GAME_END",
-        winner: winner === gameState.player1.name ? p1Score : p2Score,
-        loser: loser === gameState.player1.name ? p1Score : p2Score,
-      }),
-    );
-    return;
-  }
-};
-
-const meldCardDispatch = (gameState: GameState, msg: any) => {
-  if (
-    msg.name !== gameState.player1.name &&
-    msg.name !== gameState.player2.name
-  ) {
-    console.log("wrong player");
-    return;
-  }
-  if (msg.name === undefined) {
-    console.log("no name");
-    return;
-  }
-  if (gameState.turn !== msg.name) {
-    console.log("wrong turn");
-    return;
-  }
-  if (!msg.melds) {
-    console.log("no cards");
-    return;
-  }
-  const currPlayer =
-    msg.name === gameState.player1.name ? gameState.player1 : gameState.player2;
-  const melds = formatCardsForMelding(currPlayer, msg.melds);
-  if (melds.length === 0) {
-    console.log("wrong cards");
-    client.publish(
-      `catnasta/game/${msg.id}/${msg.name}`,
-      JSON.stringify({
-        type: "MELD_ERROR",
-        msg: "Wrong cards",
-      }),
-    );
-    return;
-  }
-  const meldPoints = melds.reduce((acc, meld) => acc + getMeldPoints(meld), 0);
-  if (meldPoints < 50 && currPlayer.melds.length === 0) {
-    console.log("wrong meld");
-    client.publish(
-      `catnasta/game/${msg.id}/${msg.name}`,
-      JSON.stringify({
-        type: "MELD_ERROR",
-        message: "You need to have at least 50 points in your first melds",
-      }),
-    );
-    return;
-  }
-  //check if player will have at least one card in hand after melding
-  if (currPlayer.hand.length - melds.flatMap((c) => c).length === 0) {
-    console.log("wrong meld");
-    client.publish(
-      `catnasta/game/${msg.id}/${msg.name}`,
-      JSON.stringify({
-        type: "MELD_ERROR",
-        message: "You need to have at least one card in hand after melding",
-      }),
-    );
-    return;
-  }
-  melds.forEach((meld) => {
-    const error = meldCards(currPlayer.hand, currPlayer.melds, meld);
-    if (error !== undefined) {
-      console.log(error);
-      client.publish(
-        `catnasta/game/${msg.id}/${msg.name}`,
-        JSON.stringify({
-          type: "MELD_ERROR",
-          message: error.msg,
-        }),
-      );
-      return;
-    }
-  });
-  client.publish(
-    `catnasta/game/${msg.id}/${msg.name}`,
-    JSON.stringify({
-      type: "HAND",
-      hand: currPlayer.hand,
-    }),
-  );
-  client.publish(
-    `catnasta/game/${msg.id}`,
-    JSON.stringify({
-      type: "MELDED_CARDS",
-      name: currPlayer.name,
-      melds: currPlayer.melds,
-    }),
-  );
-  client.publish(
-    `catnasta/game/${msg.id}/${currPlayer.name === gameState.player1.name ? gameState.player2.name : gameState.player1.name}`,
-    JSON.stringify({
-      type: "ENEMY_HAND",
-      enemy_hand: currPlayer.hand.length,
-    }),
-  );
-};
-
-const dispatchAddToMeld = (gameState: GameState, msg: any) => {
-  if (
-    msg.name !== gameState.player1.name &&
-    msg.name !== gameState.player2.name
-  ) {
-    console.log("wrong player");
-    return;
-  }
-  if (msg.name === undefined) {
-    console.log("no name");
-    return;
-  }
-  if (gameState.turn !== msg.name) {
-    console.log("wrong turn");
-    return;
-  }
-  if (!msg.cardsIds) {
-    console.log("no cards");
-    return;
-  }
-  if (msg.meldId === undefined) {
-    console.log("no meld id");
-    return;
-  }
-  const currPlayer =
-    msg.name === gameState.player1.name ? gameState.player1 : gameState.player2;
-  const cards = currPlayer.hand.filter((card) =>
-    msg.cardsIds.includes(card.id),
-  );
-  const error = addToMeld(currPlayer, msg.meldId, cards);
-  if (error !== undefined) {
-    console.log(error);
-    client.publish(
-      `catnasta/game/${msg.id}/${msg.name}`,
-      JSON.stringify({
-        type: "MELD_ERROR",
-        message: error.msg,
-      }),
-    );
-    return;
-  }
-  client.publish(
-    `catnasta/game/${msg.id}/${msg.name}`,
-    JSON.stringify({
-      type: "HAND",
-      hand: currPlayer.hand,
-    }),
-  );
-  client.publish(
-    `catnasta/game/${msg.id}`,
-    JSON.stringify({
-      type: "MELDED_CARDS",
-      name: currPlayer.name,
-      melds: currPlayer.melds,
-    }),
-  );
-  client.publish(
-    `catnasta/game/${msg.id}/${currPlayer.name === gameState.player1.name ? gameState.player2.name : gameState.player1.name}`,
-    JSON.stringify({
-      type: "ENEMY_HAND",
-      enemy_hand: currPlayer.hand.length,
-    }),
-  );
-};
+// https
+//   .createServer(
+//     {
+//       key: fs.readFileSync("./eu.dawidroszman.key"),
+//       cert: fs.readFileSync("./eu.dawidroszman.cert.pem"),
+//     },
+//     app,
+//   )
+//   .listen(port, () => {
+//     console.log(`[server]: Server is running at http://localhost:${port}`);
+//   });
+app.listen(port, () => {
+  console.log(`[server]: Server is running at http://localhost:${port}`);
+});

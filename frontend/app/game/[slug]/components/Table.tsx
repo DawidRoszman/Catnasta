@@ -2,13 +2,16 @@
 import React from "react";
 import { useGameContext } from "./GameContext";
 import client from "@/app/lib/mqtt";
-import { useCookies } from "next-client-cookies";
+import { useUserContext } from "@/app/components/UserContext";
 
 const Table = () => {
   const gameContext = useGameContext();
-  const cookies = useCookies();
+  const userContext = useUserContext();
   const [selectedCards, setSelectedCards] = React.useState<string[]>([]);
   const [cardsToMeld, setCardsToMeld] = React.useState<string[][]>([]);
+  if (gameContext === null || userContext === null) {
+    return <div>Loading...</div>;
+  }
 
   const handleChecked = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
@@ -43,7 +46,7 @@ const Table = () => {
       alert("You can't discard now");
       return;
     }
-    if (gameContext?.gameState.turn !== cookies.get("username")) {
+    if (gameContext?.gameState.turn !== userContext.username) {
       alert("Not your turn");
       return;
     }
@@ -66,7 +69,7 @@ const Table = () => {
       alert("You can't meld now");
       return;
     }
-    if (gameContext?.gameState.turn !== cookies.get("username")) {
+    if (gameContext?.gameState.turn !== userContext.username) {
       alert("Not your turn");
       return;
     }
@@ -96,7 +99,7 @@ const Table = () => {
       alert("You can't meld now");
       return;
     }
-    if (gameContext?.gameState.turn !== cookies.get("username")) {
+    if (gameContext?.gameState.turn !== userContext.username) {
       alert("Not your turn");
       return;
     }
@@ -113,7 +116,7 @@ const Table = () => {
   };
 
   const addSelectedCardsToMeld = (meldId: number) => {
-    if (gameContext?.gameState.turn !== cookies.get("username")) {
+    if (gameContext?.gameState.turn !== userContext.username) {
       alert("Not your turn");
       return;
     }
@@ -308,7 +311,7 @@ const Table = () => {
         </div>
       </div>
       <div className="grid place-items-center">
-        {gameContext?.gameState.turn === cookies.get("username") &&
+        {gameContext?.gameState.turn === userContext.username &&
           gameContext?.gameState.canDraw && (
             <button
               onClick={() => drawFromStock()}
@@ -317,7 +320,7 @@ const Table = () => {
               Draw from stock
             </button>
           )}
-        {gameContext?.gameState.turn === cookies.get("username") &&
+        {gameContext?.gameState.turn === userContext.username &&
           !gameContext?.gameState.canDraw && (
             <>
               <button
