@@ -1,7 +1,7 @@
 export interface ClientGame {
   gameId: string;
   gameState: {
-    turn: string,
+    turn: string;
     player1: {
       name: string;
       score: number;
@@ -31,6 +31,7 @@ export interface Player {
 }
 
 export interface GameState {
+  gameStarted: boolean;
   turn: string;
   gameOver: boolean;
   player1: Player;

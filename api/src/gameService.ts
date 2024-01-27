@@ -19,10 +19,13 @@ export function startRoundDispatch(
   gameState: GameState,
   msg: any,
 ) {
-  startRound(gameState);
-  const playerTurn =
-    Math.random() < 0.5 ? gameState.player1.name : gameState.player2.name;
-  gameState.turn = playerTurn;
+  if (!gameState.gameStarted) {
+    startRound(gameState);
+    const playerTurn =
+      Math.random() < 0.5 ? gameState.player1.name : gameState.player2.name;
+    gameState.turn = playerTurn;
+    gameState.gameStarted = true;
+  }
   client.publish(
     `catnasta/game/${msg.id}`,
     JSON.stringify({

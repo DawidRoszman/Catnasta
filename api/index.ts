@@ -544,6 +544,7 @@ app.post("/create_game", async (req: Request, res: Response) => {
     gameState: {
       turn: "",
       gameOver: false,
+      gameStarted: false,
       player1: {
         name: name,
         hand: [],
