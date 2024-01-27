@@ -34,20 +34,17 @@ const mongoClient = new MongoClient(uri, {
 
 async function run() {
   try {
-    // Connect the client to the server	(optional starting in v4.7)
     await mongoClient.connect();
-    // Send a ping to confirm a successful connection
     await mongoClient.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!",
     );
   } finally {
-    // Ensures that the client will close when you finish/error
     await mongoClient.close();
   }
 }
 run().catch((err) => {
-  console.dir(err);
+  console.log(err);
   fs.appendFileSync("log.json", JSON.stringify(err));
 });
 
@@ -60,19 +57,7 @@ function generateAccessToken(username: string) {
     process.env.TOKEN_SECRET as string,
   );
 }
-function authenticateTokenMqtt(msg: any) {
-  if (msg.token === undefined) {
-    return;
-  }
-  jwt.verify(
-    msg.token,
-    process.env.TOKEN_SECRET as string,
-    (err: any, user: any) => {
-      if (err) return;
-      msg.username = user.data;
-    },
-  );
-}
+
 function authenticateToken(req: Request, res: Response, next: any) {
   const authHeader = req.headers["authorization"];
   const token = authHeader && authHeader.split(" ")[1];
@@ -289,6 +274,18 @@ app.put(
     }
   },
 );
+
+app.post("/send", authenticateToken, async (req: Request, res: Response) => {
+  if (req.body.user.data !== "admin") {
+    return res
+      .status(401)
+      .send({ msg: "You are not authorized to view this page" });
+  }
+  const message = req.body.message;
+  client.publish("catnasta/messages", JSON.stringify({ message: message }));
+  fs.appendFileSync("log.json", JSON.stringify(message));
+  res.status(200).send({ msg: "Message sent" });
+});
 
 app.post("/chat", authenticateToken, async (req: Request, res: Response) => {
   try {

@@ -78,8 +78,6 @@ export function GameContextProvider({
   initalContext.gameState.player1.name = userContext?.username;
   const [state, dispatch] = useReducer(gameReducer, initalContext);
   useEffect(() => {
-    console.log("Username", userContext.username);
-    console.log("connected");
     client.subscribe(`catnasta/game/${gameId}`);
     client.subscribe(`catnasta/game/${gameId}/${userContext.username}`);
     client.publish(
@@ -104,7 +102,6 @@ export function GameContextProvider({
       const msg = JSON.parse(message.toString());
       switch (msg.type) {
         case "PLAYER_JOINED":
-          console.log("Player joined");
           dispatch({
             type: Type.SET_SECOND_PLAYER,
             payload: {
@@ -116,7 +113,6 @@ export function GameContextProvider({
           });
           break;
         case "GAME_START":
-          console.log("Game started");
           dispatch({
             type: Type.SET_CURRENT_PLAYER,
             payload: msg.current_player,
@@ -126,7 +122,6 @@ export function GameContextProvider({
           console.log("Player left");
           break;
         case "EDIT_STOCK_CARD_COUNT":
-          console.log("Stock card count received");
           dispatch({
             type: Type.EDIT_STOCK_CARD_COUNT,
             payload: msg.stock_card_count,
@@ -139,16 +134,12 @@ export function GameContextProvider({
           });
           break;
         case "HAND":
-          console.log("Hand received");
-          console.log(msg.hand);
           dispatch({
             type: Type.EDIT_PLAYER_HAND,
             payload: msg.hand,
           });
           break;
         case "RED_THREES":
-          console.log("Red threes received");
-          console.log(msg.red_threes);
           if (msg.player === userContext.username) {
             dispatch({
               type: Type.EDIT_PLAYER_RED_THREES,
@@ -162,23 +153,18 @@ export function GameContextProvider({
           }
           break;
         case "ENEMY_HAND":
-          console.log("Enemy hand received");
-          console.log(msg.enemy_hand);
           dispatch({
             type: Type.EDIT_SECOND_PLAYER_HAND,
             payload: msg.enemy_hand,
           });
           break;
         case "DISCARD_PILE_TOP_CARD":
-          console.log("Discard pile top card received");
-          console.log(msg.discard_pile_top_card);
           dispatch({
             type: Type.EDIT_DISCARD_PILE_TOP_CARD,
             payload: msg.discard_pile_top_card,
           });
           break;
         case "MELDED_CARDS":
-          console.log("Melded cards received");
           if (msg.name === userContext.username) {
             dispatch({
               type: Type.EDIT_PLAYER_MELDS,
@@ -195,7 +181,6 @@ export function GameContextProvider({
           alert(msg.message);
           break;
         case "UPDATE_SCORE":
-          console.log("Score updated");
           if (msg.player1Score.name === userContext.username) {
             dispatch({
               type: Type.UPDATE_SCORE,
@@ -215,8 +200,6 @@ export function GameContextProvider({
           }
           break;
         case "GAME_END":
-          console.log("Game ended");
-          console.log(msg);
           dispatch({
             type: Type.SET_GAME_RESULT,
             payload: {

@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { CookiesProvider } from "next-client-cookies/server";
 import { UserContextProvider } from "./components/UserContext";
+import Messages from "./components/Messages";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -20,7 +21,10 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <CookiesProvider>
-          <UserContextProvider>{children}</UserContextProvider>
+          <UserContextProvider>
+            {children}
+            <Messages />
+          </UserContextProvider>
         </CookiesProvider>
       </body>
     </html>

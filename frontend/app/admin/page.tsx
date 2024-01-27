@@ -29,6 +29,8 @@ const Admin = () => {
   const [users, setUsers] = useState<User[] | null>(null);
   const [games, setGames] = useState<Game[] | null>(null);
   const [chat, setChat] = useState<Chat[] | null>(null);
+  const [message, setMessage] = useState("");
+  const [disabled, setDisabled] = useState(false);
   const context = useUserContext();
   const cookies = useCookies();
   const router = useRouter();
@@ -85,7 +87,6 @@ const Admin = () => {
     if (id === "") {
       const response = await axios(api + "/chat", {});
       const data: Chat[] = response.data;
-      console.log(data);
       setChat(data);
       return;
     }
@@ -96,6 +97,31 @@ const Admin = () => {
     });
     const data = response.data;
     setChat(data);
+  };
+  const handleSendMessage = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setDisabled(true);
+    const response = await axios.post(
+      api + "/send",
+      {
+        message: message,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${cookies.get("token")}`,
+        },
+      },
+    );
+    const status = response.status;
+    if (status === 200) {
+      setMessage("");
+    } else {
+      alert("Something went wrong\n" + response.data.msg);
+      return;
+    }
+    setTimeout(() => {
+      setDisabled(false);
+    }, 5000);
   };
   useEffect(() => {
     const setUpAdmin = async () => {
@@ -110,7 +136,6 @@ const Admin = () => {
         },
       });
       const data: User[] = response.data;
-      console.log(data);
       setUsers(data);
     };
     const fetchGames = async () => {
@@ -120,14 +145,12 @@ const Admin = () => {
         },
       });
       const data: Game[] = response.data;
-      console.log(data);
       setGames(data);
     };
 
     const fetchChat = async () => {
       const response = await axios(api + "/chat", {});
       const data: Chat[] = response.data;
-      console.log(data);
       setChat(data);
     };
 
@@ -160,6 +183,23 @@ const Admin = () => {
           handleDeleteMessage={handleDeleteMessage}
           searchMessage={searchMessage}
         />
+      </div>
+      <div className="grid place-items-center">
+        <form onSubmit={(e) => handleSendMessage(e)}>
+          <input
+            value={message}
+            className="input input-primary"
+            onChange={(e) => setMessage(e.target.value)}
+            type="text"
+            placeholder="Write you message"
+          />
+          <input
+            className="btn btn-primary"
+            type="submit"
+            disabled={disabled}
+            value="Send"
+          />
+        </form>
       </div>
     </div>
   );

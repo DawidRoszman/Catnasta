@@ -23,7 +23,6 @@ const MqttChat = () => {
     const getMessages = async () => {
       const response = await axios.get(api + "/chat");
       const data = response.data;
-      console.log(data);
 
       const messages = data.map((message: any) => {
         return {
@@ -56,7 +55,6 @@ const MqttChat = () => {
 
   const handleSendMsg = (e: any) => {
     e.preventDefault();
-    console.log(userContext.username);
     client.publish(
       "catnasta/chat",
       JSON.stringify({
@@ -113,7 +111,6 @@ const MqttChat = () => {
       }
       return message;
     });
-    console.log(newMessages);
     setMessages(newMessages);
   };
 

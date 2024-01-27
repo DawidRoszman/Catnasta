@@ -22,7 +22,6 @@ const Table = () => {
   };
 
   const drawFromStock = () => {
-    console.log(gameContext?.gameState.turn);
     client.publish(
       `catnasta/game`,
       JSON.stringify({
@@ -37,7 +36,6 @@ const Table = () => {
   };
 
   const discardCard = () => {
-    console.log(selectedCards);
     if (selectedCards.length !== 1) {
       alert("Please select one card to discard");
       return;
@@ -90,7 +88,6 @@ const Table = () => {
   };
 
   const meldCards = () => {
-    console.log(cardsToMeld);
     if (cardsToMeld.length === 0) {
       alert("Please create at least one meld");
       return;

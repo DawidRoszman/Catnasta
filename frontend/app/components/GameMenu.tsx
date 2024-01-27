@@ -19,20 +19,17 @@ const GameMenu = () => {
       name: userContext.username,
     });
     if (response.data.id === undefined) {
-      console.log(response.data);
       alert(response.data.msg);
       return;
     }
     router.push("/game/" + response.data.id);
   };
   const joinGame = async () => {
-    console.log(userContext.username);
     const response = await axios.put(api + "/join_game", {
       id: gameId,
       name: userContext.username,
     });
     if (response.data.id === undefined) {
-      console.log(response.data);
       alert(response.data.msg);
       return;
     }

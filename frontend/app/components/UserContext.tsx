@@ -37,7 +37,6 @@ export const UserContextProvider = ({
   const cookies = useCookies();
   useEffect(() => {
     const fetchUser = async () => {
-      console.log(cookies.get("token"));
       if (cookies.get("token") !== undefined) {
         try {
           const response = await axios.get(api + "/user", {
