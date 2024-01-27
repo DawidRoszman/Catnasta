@@ -34,6 +34,42 @@ const Admin = () => {
   const context = useUserContext();
   const cookies = useCookies();
   const router = useRouter();
+  useEffect(() => {
+    const setUpAdmin = async () => {
+      const admin = await CheckIsAdmin(cookies.get("token")!);
+      setIsAdmin(admin);
+    };
+
+    const fetchUsers = async () => {
+      const response = await axios(api + "/users", {
+        headers: {
+          Authorization: `Bearer ${cookies.get("token")}`,
+        },
+      });
+      const data: User[] = response.data;
+      setUsers(data);
+    };
+    const fetchGames = async () => {
+      const response = await axios(api + "/games", {
+        headers: {
+          Authorization: `Bearer ${cookies.get("token")}`,
+        },
+      });
+      const data: Game[] = response.data;
+      setGames(data);
+    };
+
+    const fetchChat = async () => {
+      const response = await axios(api + "/chat", {});
+      const data: Chat[] = response.data;
+      setChat(data);
+    };
+
+    setUpAdmin();
+    fetchUsers();
+    fetchGames();
+    fetchChat();
+  }, [cookies]);
   if (context === null) {
     return <div>Not logged in</div>;
   }
@@ -123,42 +159,6 @@ const Admin = () => {
       setDisabled(false);
     }, 5000);
   };
-  useEffect(() => {
-    const setUpAdmin = async () => {
-      const admin = await CheckIsAdmin(cookies.get("token")!);
-      setIsAdmin(admin);
-    };
-
-    const fetchUsers = async () => {
-      const response = await axios(api + "/users", {
-        headers: {
-          Authorization: `Bearer ${cookies.get("token")}`,
-        },
-      });
-      const data: User[] = response.data;
-      setUsers(data);
-    };
-    const fetchGames = async () => {
-      const response = await axios(api + "/games", {
-        headers: {
-          Authorization: `Bearer ${cookies.get("token")}`,
-        },
-      });
-      const data: Game[] = response.data;
-      setGames(data);
-    };
-
-    const fetchChat = async () => {
-      const response = await axios(api + "/chat", {});
-      const data: Chat[] = response.data;
-      setChat(data);
-    };
-
-    setUpAdmin();
-    fetchUsers();
-    fetchGames();
-    fetchChat();
-  }, []);
 
   if (isAdmin === null) {
     return <div>Loading...</div>;

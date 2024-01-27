@@ -60,7 +60,7 @@ export const UserContextProvider = ({
       }
     };
     fetchUser();
-  }, [cookies.get("token")]);
+  }, [cookies]);
 
   return (
     <UserContext.Provider value={state}>

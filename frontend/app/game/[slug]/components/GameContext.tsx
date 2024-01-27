@@ -70,14 +70,10 @@ export function GameContextProvider({
 }) {
   const router = useRouter();
   const userContext = useUserContext();
-  if (userContext === null) {
-    router.replace("/");
-    return null;
-  }
-  initalContext.gameId = gameId;
-  initalContext.gameState.player1.name = userContext?.username;
-  const [state, dispatch] = useReducer(gameReducer, initalContext);
   useEffect(() => {
+    if (userContext === null) {
+      return;
+    }
     client.subscribe(`catnasta/game/${gameId}`);
     client.subscribe(`catnasta/game/${gameId}/${userContext.username}`);
     client.publish(
@@ -225,7 +221,16 @@ export function GameContextProvider({
     //     }),
     //   );
     // });
-  }, [gameId]);
+  }, [gameId, userContext]);
+
+  initalContext.gameId = gameId;
+  initalContext.gameState.player1.name = userContext?.username || "";
+
+  const [state, dispatch] = useReducer(gameReducer, initalContext);
+  if (userContext === null) {
+    router.replace("/");
+    return null;
+  }
   if (userContext.username === undefined) {
     window.location.href = "/";
     return null;
