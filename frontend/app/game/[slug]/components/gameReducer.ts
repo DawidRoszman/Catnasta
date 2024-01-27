@@ -86,6 +86,7 @@ export enum Type {
   EDIT_GAME_OVER,
   SET_GAME_RESULT,
   UPDATE_SCORE,
+  PLAYER_DRAW_CARD,
 }
 
 export interface Action {
@@ -249,6 +250,16 @@ export const gameReducer = (state: Game, action: Action) => {
             ...state.gameState.player2,
             score: payload.player2Score,
           },
+        },
+      };
+    case Type.PLAYER_DRAW_CARD:
+      return {
+        ...state,
+        gameState: {
+          ...state.gameState,
+          canDraw: false,
+          canDiscard: true,
+          canMeld: true,
         },
       };
     default:

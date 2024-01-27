@@ -1,15 +1,17 @@
 "use client";
 import React from "react";
-import { useGameContext } from "./GameContext";
+import { useGameContext, useGameDispatch } from "./GameContext";
 import client from "@/app/lib/mqtt";
 import { useUserContext } from "@/app/components/UserContext";
+import { Type } from "./gameReducer";
 
 const Table = () => {
   const gameContext = useGameContext();
+  const gameDispatch = useGameDispatch();
   const userContext = useUserContext();
   const [selectedCards, setSelectedCards] = React.useState<string[]>([]);
   const [cardsToMeld, setCardsToMeld] = React.useState<string[][]>([]);
-  if (gameContext === null || userContext === null) {
+  if (gameContext === null || userContext === null || gameDispatch === null) {
     return <div>Loading...</div>;
   }
 
@@ -30,9 +32,17 @@ const Table = () => {
         name: gameContext?.gameState.player1.name,
       }),
     );
+    console.log(gameContext.gameState.canDraw);
+
     gameContext!.gameState.canDraw = false;
     gameContext!.gameState.canDiscard = true;
     gameContext!.gameState.canMeld = true;
+    gameDispatch({
+      type: Type.PLAYER_DRAW_CARD,
+      payload: {
+        name: gameContext.gameState.player1.name,
+      },
+    });
   };
 
   const discardCard = () => {
