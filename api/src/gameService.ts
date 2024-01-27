@@ -10,6 +10,7 @@ import {
   startRound,
 } from "./game";
 import { Game, GameState } from "./types/types";
+import { MongoClient } from "mongodb";
 
 export const games: Game[] = [];
 
@@ -171,10 +172,11 @@ export const drawCardDispatch = (
   );
 };
 
-export const discardCardDispatch = (
+export const discardCardDispatch = async (
   client: mqtt.MqttClient,
   gameState: GameState,
   msg: any,
+  mongoClient: MongoClient,
 ) => {
   if (
     msg.name !== gameState.player1.name &&
@@ -276,6 +278,9 @@ export const discardCardDispatch = (
         loser: loser === gameState.player1.name ? p1Score : p2Score,
       }),
     );
+    await mongoClient.connect();
+    mongoClient.db("catnasta").collection("games").insertOne(gameState);
+
     return;
   }
 };

@@ -143,7 +143,7 @@ client.on("message", async (topic, message) => {
         drawCardDispatch(client, gameState, msg);
         break;
       case "DISCARD_CARD":
-        discardCardDispatch(client, gameState, msg);
+        discardCardDispatch(client, gameState, msg, mongoClient);
         break;
       case "MELD_CARDS":
         console.log(msg);
