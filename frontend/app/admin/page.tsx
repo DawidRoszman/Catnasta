@@ -264,6 +264,7 @@ const Chat = ({
       <div>
         <input
           className="input input-primary"
+          placeholder="Search message..."
           type="text"
           onChange={(e) => searchMessage(e.target.value)}
         />

@@ -9,6 +9,9 @@ const Messages = () => {
     client.subscribe("catnasta/messages");
 
     client.on("message", (topic, msg) => {
+      if (topic !== "catnasta/messages") {
+        return;
+      }
       const { message } = JSON.parse(msg.toString());
       setIncomingMessage(message);
       setTimeout(() => {

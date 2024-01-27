@@ -5,6 +5,7 @@ import MqttChat from "./components/MqttChat";
 import GameMenu from "./components/GameMenu";
 import { api } from "./lib/api";
 import Auth from "./components/Auth";
+import Link from "next/link";
 
 export default async function Home() {
   const data = await axios.get(api + "/");
@@ -12,6 +13,9 @@ export default async function Home() {
   return (
     <Suspense fallback={<Loading />}>
       <Auth />
+      <Link href="/game" className="fixed top-0 left-0 btn btn-primary m-5">
+        List of games
+      </Link>
       <div className="hero min-h-screen bg-base-200">
         <div className="hero-content text-center">
           <div className="max-w-md">

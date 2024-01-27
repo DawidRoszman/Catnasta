@@ -5,6 +5,7 @@ import client from "../lib/mqtt";
 import { api } from "../lib/api";
 import { useUserContext, useUserDispatch } from "./UserContext";
 import { useRouter } from "next/navigation";
+import { joinGame } from "../lib/joinGame";
 
 const GameMenu = () => {
   const [gameId, setGameId] = React.useState("");
@@ -24,28 +25,10 @@ const GameMenu = () => {
     }
     router.push("/game/" + response.data.id);
   };
-  const joinGame = async () => {
-    const response = await axios.put(api + "/join_game", {
-      id: gameId,
-      name: userContext.username,
-    });
-    if (response.data.id === undefined) {
-      alert(response.data.msg);
-      return;
-    }
-    client.publish(
-      "catnasta-game",
-      JSON.stringify({
-        type: "PLAYER_JOINED",
-        id: response.data.id,
-        name: userContext.username,
-      }),
-    );
-    router.push("/game/" + response.data.id);
-  };
+
   const handleSubmit = async (e: any) => {
     e.preventDefault();
-    await joinGame();
+    await joinGame(gameId, userContext.username, router);
   };
 
   return (

@@ -51,7 +51,7 @@ run().catch((err) => {
 function generateAccessToken(username: string) {
   return jwt.sign(
     {
-      exp: Math.floor(Date.now() / 1000) + 60 * 60,
+      exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7,
       data: username,
     },
     process.env.TOKEN_SECRET as string,
@@ -493,6 +493,22 @@ app.get("/games", authenticateToken, async (req: Request, res: Response) => {
   return res.send(games);
 });
 
+app.get(
+  "/live_games",
+  authenticateToken,
+  async (req: Request, res: Response) => {
+    return res.status(200).send(
+      games.map((game) => {
+        return {
+          id: game.gameId,
+          players_in_game:
+            game.gameState.player1.name && game.gameState.player2.name ? 2 : 1,
+        };
+      }),
+    );
+  },
+);
+
 app.delete("/games/:id", authenticateToken, async (req, res) => {
   const user = req.body.user.data;
   if (user !== "admin") {
@@ -547,6 +563,18 @@ app.post("/create_game", async (req: Request, res: Response) => {
     },
   };
   games.push(game);
+  client.publish(
+    "catnasta/game_list",
+    JSON.stringify(
+      games.map((game) => {
+        return {
+          id: game.gameId,
+          players_in_game:
+            game.gameState.player1.name && game.gameState.player2.name ? 2 : 1,
+        };
+      }),
+    ),
+  );
   return res.send({ id: game.gameId });
 });
 
@@ -576,6 +604,20 @@ app.put("/join_game", async (req: Request, res: Response) => {
     games.map((game) => {
       if (game.gameId === id) return updatedGame;
     });
+    client.publish(
+      "catnasta/game_list",
+      JSON.stringify(
+        games.map((game) => {
+          return {
+            id: game.gameId,
+            players_in_game:
+              game.gameState.player1.name && game.gameState.player2.name
+                ? 2
+                : 1,
+          };
+        }),
+      ),
+    );
     return res.send({ id: id });
   }
   return res.send({ msg: "Game not found" });
