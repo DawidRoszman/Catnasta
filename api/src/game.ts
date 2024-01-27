@@ -135,6 +135,11 @@ export const meldCards = (
     console.log("All natural cards in a meld must have the same rank");
     return { msg: "All natural cards in a meld must have the same rank" };
   }
+  // check if rank is black three
+  if (rank === "3" && naturalCards[0]?.suit.match(/(CLUB|SPADE)/)) {
+    console.log("Black three cannot be melded");
+    return { msg: "Black three cannot be melded" };
+  }
 
   playMeld(cardsToMeld, playerHand, playerMelds);
 };

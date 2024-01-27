@@ -308,6 +308,10 @@ const Table = () => {
         </div>
       </div>
       <div className="grid place-items-center">
+        {gameContext.gameState.turn !== userContext.username &&
+          gameContext.gameState.player2.name !== "" && (
+            <div>Wait for your opponent move</div>
+          )}
         {gameContext?.gameState.turn === userContext.username &&
           gameContext?.gameState.canDraw && (
             <button

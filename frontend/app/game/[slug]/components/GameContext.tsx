@@ -174,7 +174,7 @@ export function GameContextProvider({
           }
           break;
         case "MELD_ERROR":
-          alert(msg.message);
+          alert(msg.message + "\nCards have been returned to your hand");
           break;
         case "UPDATE_SCORE":
           if (msg.player1Score.name === userContext.username) {
