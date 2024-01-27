@@ -123,7 +123,7 @@ export const drawCardDispatch = (
     msg.name === gameState.player1.name ? gameState.player1 : gameState.player2;
   if (
     currPlayer.hand.length + currPlayer.melds.flatMap((c) => c).length >=
-    15
+    16
   ) {
     console.log("too many cards");
     return;
