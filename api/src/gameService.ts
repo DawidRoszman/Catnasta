@@ -121,6 +121,13 @@ export const drawCardDispatch = (
   }
   const currPlayer =
     msg.name === gameState.player1.name ? gameState.player1 : gameState.player2;
+  if (
+    currPlayer.hand.length + currPlayer.melds.flatMap((c) => c).length >=
+    15
+  ) {
+    console.log("too many cards");
+    return;
+  }
   drawCard(gameState.stock, currPlayer);
   if (gameState.stock.length === 0) {
     gameState.gameOver = true;

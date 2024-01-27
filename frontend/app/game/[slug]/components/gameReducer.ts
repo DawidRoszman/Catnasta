@@ -118,7 +118,7 @@ export const gameReducer = (state: Game, action: Action) => {
             turn: payload,
             canDraw: true,
             canDiscard: false,
-            canMel: false,
+            canMeld: false,
           },
         };
       } else {

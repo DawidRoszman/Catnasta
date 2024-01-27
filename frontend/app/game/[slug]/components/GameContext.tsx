@@ -84,16 +84,7 @@ export function GameContextProvider({
         type: "PLAYER_JOINED",
       }),
     );
-    client.on("disconnect", () => {
-      client.publish(
-        "catnasta/game",
-        JSON.stringify({
-          type: "PLAYER_LEFT",
-          id: gameId,
-          name: userContext.username,
-        }),
-      );
-    });
+
     const handleMessage = (topic: any, message: any) => {
       const msg = JSON.parse(message.toString());
       switch (msg.type) {
