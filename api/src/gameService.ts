@@ -187,6 +187,7 @@ export const discardCardDispatch = async (
   gameState: GameState,
   msg: any,
   mongoClient: MongoClient,
+  games: Game[],
 ) => {
   if (
     msg.name !== gameState.player1.name &&
@@ -290,6 +291,25 @@ export const discardCardDispatch = async (
     );
     await mongoClient.connect();
     mongoClient.db("catnasta").collection("games").insertOne(gameState);
+    games.splice(
+      games.findIndex((game) => game.gameId === msg.id),
+      1,
+    );
+
+    client.publish(
+      "catnasta/game_list",
+      JSON.stringify(
+        games.map((game) => {
+          return {
+            id: game.gameId,
+            players_in_game:
+              game.gameState.player1.name && game.gameState.player2.name
+                ? 2
+                : 1,
+          };
+        }),
+      ),
+    );
 
     return;
   }
