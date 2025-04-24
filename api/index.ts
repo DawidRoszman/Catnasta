@@ -21,8 +21,14 @@ const clientId = "mqttjs_server_" + Math.random().toString(16).slice(2, 8);
 const client = mqtt.connect("wss://broker.emqx.io:8084/mqtt", {
   clientId: clientId,
 });
+// Read connection details from environment variables
+const DB_USER = process.env.DB_USER;
+const DB_PASSWORD = process.env.DB_PASSWORD;
+const DB_NAME = process.env.DB_NAME;
+const DB_HOST = process.env.DB_HOST || "localhost"; // Default to localhost if not provided
 
-const uri = process.env.MONGO_URI || "";
+// Construct MongoDB URI
+const uri = `mongodb+srv://${DB_USER}:${DB_PASSWORD}@${DB_HOST}/${DB_NAME}?retryWrites=true&w=majority`;
 
 const mongoClient = new MongoClient(uri, {
   serverApi: {
@@ -36,17 +42,15 @@ async function run() {
   try {
     await mongoClient.connect();
     await mongoClient.db("admin").command({ ping: 1 });
-    console.log(
-      "Pinged your deployment. You successfully connected to MongoDB!",
-    );
+    console.log("Pinged your deployment. You successfully connected to MongoDB!");
+  } catch (err) {
+    console.error("Connection error:", err);
+    fs.appendFileSync("log.json", JSON.stringify(err, null, 2));
   } finally {
     await mongoClient.close();
   }
 }
-run().catch((err) => {
-  console.log(err);
-  fs.appendFileSync("log.json", JSON.stringify(err));
-});
+run()
 
 function generateAccessToken(username: string) {
   return jwt.sign(
