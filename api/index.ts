@@ -627,17 +627,17 @@ app.put("/join_game", async (req: Request, res: Response) => {
   }
   return res.send({ msg: "Game not found" });
 });
-https
-  .createServer(
-    {
-      key: fs.readFileSync("./eu.dawidroszman.key"),
-      cert: fs.readFileSync("./eu.dawidroszman.cert.pem"),
-    },
-    app,
-  )
-  .listen(port, () => {
-    console.log(`[server]: Server is running at http://localhost:${port}`);
-  });
-// app.listen(port, () => {
-//   console.log(`[server]: Server is running at http://localhost:${port}`);
-// });
+// https
+//   .createServer(
+//     {
+//       key: fs.readFileSync("./eu.dawidroszman.key"),
+//       cert: fs.readFileSync("./eu.dawidroszman.cert.pem"),
+//     },
+//     app,
+//   )
+//   .listen(port, () => {
+//     console.log(`[server]: Server is running at http://localhost:${port}`);
+//   });
+app.listen(port, () => {
+  console.log(`[server]: Server is running at http://localhost:${port}`);
+});
