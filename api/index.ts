@@ -9,6 +9,7 @@ import {
   drawCardDispatch,
   games,
   meldCardDispatch,
+  pickUpPileDispatch,
   startRoundDispatch,
 } from "./src/gameService";
 import { MongoClient, ObjectId, ServerApiVersion } from "mongodb";
@@ -22,13 +23,16 @@ const client = mqtt.connect("wss://broker.emqx.io:8084/mqtt", {
   clientId: clientId,
 });
 // Read connection details from environment variables
+const DB_URI = process.env.DB_URI;
 const DB_USER = process.env.DB_USER;
 const DB_PASSWORD = process.env.DB_PASSWORD;
 const DB_NAME = process.env.DB_NAME;
 const DB_HOST = process.env.DB_HOST || "localhost"; // Default to localhost if not provided
 
-// Construct MongoDB URI
-const uri = `mongodb+srv://${DB_USER}:${DB_PASSWORD}@${DB_HOST}/${DB_NAME}?retryWrites=true&w=majority`;
+// Construct MongoDB URI (prefer explicit URI for local/dev containers)
+const uri =
+  DB_URI ||
+  `mongodb+srv://${DB_USER}:${DB_PASSWORD}@${DB_HOST}/${DB_NAME}?retryWrites=true&w=majority`;
 
 const mongoClient = new MongoClient(uri, {
   serverApi: {
@@ -85,7 +89,7 @@ function authenticateToken(req: Request, res: Response, next: any) {
 client.publish("catnasta", "Hello mqtt");
 
 const app: Express = express();
-const port = 5000;
+const port = 5001;
 app.use(express.json());
 app.use(cors());
 
@@ -143,6 +147,7 @@ client.on("message", async (topic, message) => {
             player: msg.name,
           }),
         );
+        break;
       case "DRAW_FROM_STOCK":
         drawCardDispatch(client, gameState, msg);
         break;
@@ -150,12 +155,13 @@ client.on("message", async (topic, message) => {
         discardCardDispatch(client, gameState, msg, mongoClient, games);
         break;
       case "MELD_CARDS":
-        console.log(msg);
         meldCardDispatch(client, gameState, msg);
         break;
       case "ADD_TO_MELD":
-        console.log(msg);
         dispatchAddToMeld(client, gameState, msg);
+        break;
+      case "PICKUP_DISCARD_PILE":
+        pickUpPileDispatch(client, gameState, msg);
         break;
     }
   }

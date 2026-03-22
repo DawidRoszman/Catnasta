@@ -17,6 +17,19 @@ const MqttChat = () => {
   const userContext = useUserContext();
   const [message, setMessage] = React.useState("");
   const [messages, setMessages] = React.useState<Message[]>([]);
+  const [isChatOpen, setIsChatOpen] = React.useState(false);
+  const [hasUnreadChatMessage, setHasUnreadChatMessage] = React.useState(false);
+  const isChatOpenRef = React.useRef(false);
+  const usernameRef = React.useRef("");
+
+  React.useEffect(() => {
+    isChatOpenRef.current = isChatOpen;
+  }, [isChatOpen]);
+
+  React.useEffect(() => {
+    usernameRef.current = userContext?.username ?? "";
+  }, [userContext?.username]);
+
   useEffect(() => {
     client.subscribe("catnasta/chat");
 
@@ -36,17 +49,24 @@ const MqttChat = () => {
 
     getMessages();
 
-    const handleMessage = (topic: any, msg: any) => {
-      const { id, username, message } = JSON.parse(msg.toString());
+    const handleMessage = (_topic: unknown, msg: { toString: () => string }) => {
+      const { id, username, message: text } = JSON.parse(msg.toString());
 
       setMessages((prev) => [
         ...prev,
-        { id: id, username: username, message: message },
+        { id: id, username: username, message: text },
       ]);
+
+      const isFromCurrentUser = username === usernameRef.current;
+      if (!isChatOpenRef.current && !isFromCurrentUser) {
+        setHasUnreadChatMessage(true);
+      }
     };
 
-    // Add the callback function as a listener to the 'message' event
     client.on("message", handleMessage);
+    return () => {
+      client.off("message", handleMessage);
+    };
   }, []);
 
   if (userContext === null) {
@@ -120,9 +140,28 @@ const MqttChat = () => {
         tabIndex={0}
         className="collapse collapse-arrow w-fit bg-base-200 fixed bottom-0 right-0"
       >
-        <input type="checkbox" />
-        <div className="collapse-title collapse-arrow text-xl font-medium">
-          Chat here
+        <input
+          type="checkbox"
+          checked={isChatOpen}
+          onChange={(e) => {
+            const open = e.target.checked;
+            setIsChatOpen(open);
+            if (open) {
+              setHasUnreadChatMessage(false);
+            }
+          }}
+        />
+        <div className="collapse-title collapse-arrow text-xl font-medium relative pr-10">
+          <span className="inline-flex items-center gap-2">
+            Chat here
+            {hasUnreadChatMessage ? (
+              <span
+                className="h-2.5 w-2.5 shrink-0 rounded-full bg-error"
+                title="New message"
+                aria-label="New chat message"
+              />
+            ) : null}
+          </span>
         </div>
         <div className="collapse-content grid place-items-center">
           <div className="border-2 border-primary rounded-xl p-5">

@@ -195,6 +195,62 @@ export const getTotalMeldPoints = (melds: (Card | Joker)[][]): number => {
   return melds.reduce((sum, meld) => sum + getMeldPoints(meld), 0);
 };
 //
+export const canPickUpPile = (
+  player: Player,
+  discardPile: (Card | Joker)[],
+): boolean => {
+  // Check if player has completed their first meld
+  if (player.melds.length === 0) {
+    return false;
+  }
+
+  // Check if discard pile is empty
+  if (discardPile.length === 0) {
+    return false;
+  }
+
+  const topCard = discardPile[discardPile.length - 1];
+  
+  // Check if top card is a black three or wild card
+  if (
+    (topCard.rank === "3" && topCard.suit.match(/(CLUB|SPADE)/)) ||
+    topCard.rank === "2" ||
+    (topCard as Joker).rank === "JOKER"
+  ) {
+    return false;
+  }
+
+  // Check if player has at least two natural cards of the same rank as the top card
+  const matchingCards = player.hand.filter(
+    (card) => card.rank === topCard.rank && card.rank !== "2" && (card as Joker).rank !== "JOKER"
+  );
+
+  return matchingCards.length >= 2;
+};
+
+export const pickUpPile = (
+  discardPile: (Card | Joker)[],
+  player: Player,
+): { success: boolean; message?: string } => {
+  if (!canPickUpPile(player, discardPile)) {
+    return { 
+      success: false, 
+      message: "Cannot pick up the discard pile. Make sure you have completed your first meld and have at least two matching natural cards for the top card." 
+    };
+  }
+
+  // Get the top card
+  const topCard = discardPile[discardPile.length - 1];
+  
+  // Add all cards from discard pile to player's hand
+  player.hand.push(...discardPile);
+  
+  // Clear the discard pile
+  discardPile.length = 0;
+
+  return { success: true };
+};
+//
 // export const canPickUpPile = (
 //   playerHand: (Card | Joker)[],
 //   topCard: Card | Joker,

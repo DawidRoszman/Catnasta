@@ -8,6 +8,7 @@ import {
   getMeldPoints,
   meldCards,
   startRound,
+  pickUpPile,
 } from "./game";
 import { Game, GameState } from "./types/types";
 import { MongoClient } from "mongodb";
@@ -488,6 +489,71 @@ export const dispatchAddToMeld = (
     JSON.stringify({
       type: "ENEMY_HAND",
       enemy_hand: currPlayer.hand.length,
+    }),
+  );
+};
+
+export const pickUpPileDispatch = (
+  client: mqtt.MqttClient,
+  gameState: GameState,
+  msg: any,
+) => {
+  if (
+    msg.name !== gameState.player1.name &&
+    msg.name !== gameState.player2.name
+  ) {
+    console.log("wrong player");
+    return;
+  }
+  if (msg.name === undefined) {
+    console.log("no name");
+    return;
+  }
+  if (gameState.turn !== msg.name) {
+    console.log("wrong turn");
+    return;
+  }
+
+  const player =
+    msg.name === gameState.player1.name ? gameState.player1 : gameState.player2;
+
+  const result = pickUpPile(gameState.discardPile, player);
+
+  if (!result.success) {
+    client.publish(
+      `catnasta/game/${msg.id}/${msg.name}`,
+      JSON.stringify({
+        type: "PICKUP_ERROR",
+        message: result.message,
+      }),
+    );
+    return;
+  }
+
+  // Notify all players about the updated game state
+  client.publish(
+    `catnasta/game/${msg.id}/${msg.name}`,
+    JSON.stringify({
+      type: "HAND",
+      hand: player.hand,
+    }),
+  );
+  client.publish(
+    `catnasta/game/${msg.id}`,
+    JSON.stringify({
+      type: "DISCARD_PILE_TOP_CARD",
+      discard_pile_top_card: gameState.discardPile[0],
+    }),
+  );
+  client.publish(
+    `catnasta/game/${msg.id}/${
+      player.name === gameState.player1.name
+        ? gameState.player2.name
+        : gameState.player1.name
+    }`,
+    JSON.stringify({
+      type: "ENEMY_HAND",
+      enemy_hand: player.hand.length,
     }),
   );
 };

@@ -1,0 +1,40 @@
+version: "3.8"
+
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: catnasta
+      MONGO_INITDB_ROOT_PASSWORD: catnasta
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  api:
+    build:
+      context: ./api
+    restart: unless-stopped
+    depends_on:
+      - mongo
+    environment:
+      DB_URI: mongodb://catnasta:catnasta@mongo:27017/catnasta?authSource=admin
+      TOKEN_SECRET: dev-secret
+    ports:
+      - "5001:5001"
+
+  frontend:
+    build:
+      context: ./frontend
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      API_URL: http://api:5001
+      NEXT_PUBLIC_API_URL: http://localhost:5001
+    ports:
+      - "3000:3000"
+
+volumes:
+  mongo_data:

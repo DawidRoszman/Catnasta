@@ -30,9 +30,61 @@ const Table = () => {
         type: "DRAW_FROM_STOCK",
         id: gameContext?.gameId,
         name: gameContext?.gameState.player1.name,
-      }),
+      })
     );
     console.log(gameContext.gameState.canDraw);
+
+    gameContext!.gameState.canDraw = false;
+    gameContext!.gameState.canDiscard = true;
+    gameContext!.gameState.canMeld = true;
+    gameDispatch({
+      type: Type.PLAYER_DRAW_CARD,
+      payload: {
+        name: gameContext.gameState.player1.name,
+      },
+    });
+  };
+
+  const pickupDiscardPile = () => {
+    if (!gameContext?.gameState.canDraw) {
+      alert("You can't pick up the discard pile now");
+      return;
+    }
+    if (gameContext?.gameState.turn !== userContext.username) {
+      alert("Not your turn");
+      return;
+    }
+    if (gameContext?.gameState.discardPileTopCard === null) {
+      alert("Discard pile is empty");
+      return;
+    }
+    // Check if the top card is a black Three or wild card (blocked)
+    const topCard = gameContext.gameState.discardPileTopCard;
+    if (
+      (topCard.rank === "3" && topCard.suit === "CLUB") ||
+      topCard.suit === "SPADE" ||
+      topCard.rank === "2" ||
+      topCard.rank === "JOKER"
+    ) {
+      alert("Discard pile is blocked by a black Three or wild card");
+      return;
+    }
+    // Check if player has completed their first meld
+    if (gameContext.gameState.player1.melds.length === 0) {
+      alert(
+        "You must complete your first meld before picking up the discard pile"
+      );
+      return;
+    }
+
+    client.publish(
+      `catnasta/game`,
+      JSON.stringify({
+        type: "PICKUP_DISCARD_PILE",
+        id: gameContext?.gameId,
+        name: gameContext?.gameState.player1.name,
+      })
+    );
 
     gameContext!.gameState.canDraw = false;
     gameContext!.gameState.canDiscard = true;
@@ -65,7 +117,7 @@ const Table = () => {
         id: gameContext?.gameId,
         name: gameContext?.gameState.player1.name,
         cardId: selectedCards[0],
-      }),
+      })
     );
     gameContext!.gameState.canDiscard = false;
     gameContext!.gameState.canMeld = false;
@@ -117,7 +169,7 @@ const Table = () => {
         id: gameContext?.gameId,
         name: gameContext?.gameState.player1.name,
         melds: cardsToMeld,
-      }),
+      })
     );
     setCardsToMeld([]);
   };
@@ -143,7 +195,7 @@ const Table = () => {
         name: gameContext?.gameState.player1.name,
         meldId: meldId,
         cardsIds: selectedCards,
-      }),
+      })
     );
     setSelectedCards([]);
     document.querySelectorAll("input[type=checkbox]").forEach((el) => {
@@ -211,7 +263,7 @@ const Table = () => {
                 >
                   {cards.map((cardId) => {
                     const card = gameContext?.gameState.player1.hand.find(
-                      (card) => card.id === cardId,
+                      (card) => card.id === cardId
                     );
                     if (card === undefined) {
                       return (
@@ -276,7 +328,7 @@ const Table = () => {
         <div className="flex flex-col gap-3">
           <div>
             {Array.from(
-              Array(gameContext?.gameState.player2.num_of_cards_in_hand),
+              Array(gameContext?.gameState.player2.num_of_cards_in_hand)
             ).map((_, id) => {
               return <div key={id}>{id + 1}. Back of the card</div>;
             })}
@@ -324,12 +376,22 @@ const Table = () => {
           )}
         {gameContext?.gameState.turn === userContext.username &&
           gameContext?.gameState.canDraw && (
-            <button
-              onClick={() => drawFromStock()}
-              className="btn btn-primary btn-outline"
-            >
-              Draw from stock
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => drawFromStock()}
+                className="btn btn-primary btn-outline"
+              >
+                Draw from stock
+              </button>
+              {gameContext?.gameState.discardPileTopCard !== null && (
+                <button
+                  onClick={() => pickupDiscardPile()}
+                  className="btn btn-primary btn-outline"
+                >
+                  Pick up discard pile
+                </button>
+              )}
+            </div>
           )}
         {gameContext?.gameState.turn === userContext.username &&
           !gameContext?.gameState.canDraw && (
