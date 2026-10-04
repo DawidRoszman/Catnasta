@@ -1,4 +1,4 @@
-import mqtt from "mqtt/*";
+import mqtt from "mqtt";
 import {
   addToMeld,
   calculatePlayerScore,

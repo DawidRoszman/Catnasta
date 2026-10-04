@@ -80,6 +80,7 @@ function authenticateToken(req: Request, res: Response, next: any) {
 
       if (err) return res.sendStatus(403);
 
+      req.body ??= {};
       req.body.user = user;
 
       next();
@@ -229,7 +230,7 @@ app.delete(
   authenticateToken,
   async (req: Request, res: Response) => {
     try {
-      const id = req.params.id;
+      const id = req.params.id as string;
       console.log(id);
       await mongoClient.connect();
       const query = mongoClient.db("catnasta").collection("chat").findOne({
@@ -258,7 +259,7 @@ app.put(
   authenticateToken,
   async (req: Request, res: Response) => {
     try {
-      const id = req.params.id;
+      const id = req.params.id as string;
       const message = req.body.message;
       await mongoClient.connect();
       const query = mongoClient.db("catnasta").collection("chat").findOne({
@@ -380,7 +381,7 @@ app.get(
     if (user !== "admin") {
       return res.send({ msg: "You are not authorized to view this page" });
     }
-    const id = req.params.id;
+    const id = req.params.id as string;
     await mongoClient.connect();
     const query = mongoClient
       .db("catnasta")
@@ -402,7 +403,7 @@ app.delete(
     if (user !== "admin") {
       return res.send({ msg: "You are not authorized to view this page" });
     }
-    const id = req.params.id;
+    const id = req.params.id as string;
     await mongoClient.connect();
     const query = mongoClient
       .db("catnasta")
@@ -462,7 +463,7 @@ app.put("/admin/user/edit/:id", authenticateToken, async (req, res) => {
   if (user !== "admin") {
     return res.send({ msg: "You are not authorized to view this page" });
   }
-  const id = req.params.id;
+  const id = req.params.id as string;
   const newUsername = req.body.newUsername;
   const query = mongoClient
     .db("catnasta")
@@ -524,7 +525,7 @@ app.delete("/games/:id", authenticateToken, async (req, res) => {
   if (user !== "admin") {
     return res.send({ msg: "You are not authorized to view this page" });
   }
-  const id = req.params.id;
+  const id = req.params.id as string;
   await mongoClient.connect();
   const query = mongoClient
     .db("catnasta")
