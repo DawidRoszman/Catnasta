@@ -55,8 +55,8 @@ const STEPS = [
 export default function Home() {
   return (
     <main className="flex-1">
-      <section className="mx-auto grid max-w-6xl items-center gap-10 px-4 pb-16 pt-10 sm:px-6 lg:grid-cols-[1.05fr_1fr] lg:pt-20">
-        <div className="animate-slide-up">
+      <section className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)] items-center gap-10 px-4 pb-16 pt-10 sm:px-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:pt-20">
+        <div className="min-w-0 animate-slide-up">
           <p className="mb-4 inline-flex items-center gap-2 rounded-full bg-brass/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-brass ring-1 ring-brass/30">
             A feline twist on Canasta
           </p>
