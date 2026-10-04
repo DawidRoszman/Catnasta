@@ -102,3 +102,24 @@ Once a round ended, the scores are determined as follows:
 Game ends when one player reaches 5000 points. The player with highest total score wins.
 
 [Rules inspired by Canasta-Palace](https://www.canasta-palace.com/a-quick-explanation-of-canasta/)
+
+## Running it
+
+The whole stack (MongoDB, API and frontend) runs with Docker:
+
+```sh
+docker compose up -d --build
+```
+
+The frontend is served at http://localhost:3000 and the API at http://localhost:5001.
+
+## End-to-end tests
+
+The [Maestro](https://maestro.dev) web flows in `e2e/` cover the landing page, sign up and log in, dealing a table, playing a turn on the 3D board and the lobby chat. With the stack running, play them in a headless browser:
+
+```sh
+./e2e/run.sh                          # all flows
+./e2e/run.sh e2e/flows/02-auth.yaml   # a single flow
+```
+
+Set `BASE_URL` and `API_URL` to point the flows at another environment.

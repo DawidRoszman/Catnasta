@@ -1,0 +1,41 @@
+url: http://localhost:3000
+name: Register, sign out and log back in
+---
+- launchApp:
+    clearState: true
+- openLink: ${BASE_URL}
+- runFlow: ../subflows/register.yaml
+- tapOn:
+    id: "account-menu"
+- assertVisible: "Signed in as.*"
+- assertVisible: "Change password"
+- tapOn: "Sign out"
+- assertVisible: "You've been signed out."
+- assertVisible: "Sign up"
+
+# A wrong password shows an inline error, not a browser popup.
+- tapOn: "Log in"
+- assertVisible: "Welcome back"
+- tapOn:
+    id: "username"
+- inputText: ${output.username}
+- tapOn:
+    id: "password"
+- inputText: "definitely-wrong"
+- tapOn:
+    text: "Log in"
+    index: 1
+- assertVisible: "Wrong username or password"
+
+- tapOn:
+    id: "password"
+- eraseText: 30
+- inputText: ${output.password}
+- tapOn:
+    text: "Log in"
+    index: 1
+- extendedWaitUntil:
+    visible: ${"Welcome back, " + output.username + "!"}
+    timeout: 10000
+- assertVisible:
+    id: "account-menu"

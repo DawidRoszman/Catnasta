@@ -1,0 +1,48 @@
+url: http://localhost:3000
+name: Join a table and play a turn on the 3D board
+---
+- launchApp:
+    clearState: true
+- openLink: ${BASE_URL}
+- runFlow: ../subflows/register.yaml
+- runFlow: ../subflows/join-opponent-table.yaml
+
+- assertVisible:
+    id: "game-canvas"
+- assertVisible: ${output.tableCode}
+- assertVisible: ${output.opponent}
+- assertNotVisible: "Waiting for an opponent"
+
+# Who starts is random and the API opponent never moves, so deal fresh tables
+# until we get the first turn.
+- repeat:
+    while:
+      notVisible: "Your turn — draw from the stock or take the discard pile"
+    times: 8
+    commands:
+      - assertVisible: ${output.opponent + " is thinking…"}
+      - runFlow: ../subflows/join-opponent-table.yaml
+
+- assertVisible: "Your turn — draw from the stock or take the discard pile"
+- takeScreenshot: play-turn-1-draw
+- tapOn: "Draw"
+- assertVisible: "Select cards to meld, then discard one to end your turn"
+
+# Click a card in the middle of the fanned hand on the 3D table.
+- tapOn:
+    point: "50%,80%"
+- assertVisible: "1 selected"
+- takeScreenshot: play-turn-2-selected
+- tapOn: "Discard"
+- extendedWaitUntil:
+    visible: ${output.opponent + " is thinking…"}
+    timeout: 10000
+- assertNotVisible: "1 selected"
+- takeScreenshot: play-turn-3-discarded
+
+# The rules are one click away during play.
+- tapOn:
+    id: "rules-button"
+- assertVisible: "How to play"
+- tapOn: "Got it"
+- assertNotVisible: "How to play"

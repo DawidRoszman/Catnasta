@@ -1,0 +1,17 @@
+# Deals a table for an API-created opponent and joins it from the home page.
+url: http://localhost:3000
+---
+- runScript:
+    file: ../scripts/opponentTable.js
+    env:
+      API_URL: ${API_URL}
+- openLink: ${BASE_URL}
+- tapOn:
+    id: "table-code"
+- inputText: ${output.tableCode}
+- tapOn: "Join"
+# Joining fills the second seat, which deals the cards.
+- extendedWaitUntil:
+    visible:
+      id: "action-dock"
+    timeout: 20000

@@ -1,0 +1,21 @@
+url: http://localhost:3000
+name: Deal a table and wait for an opponent
+---
+- launchApp:
+    clearState: true
+- openLink: ${BASE_URL}
+- runFlow: ../subflows/register.yaml
+- tapOn:
+    id: "create-game"
+- extendedWaitUntil:
+    visible:
+      id: "waiting-room"
+    timeout: 15000
+- assertVisible: "Waiting for an opponent"
+- copyTextFrom:
+    id: "game-code"
+- assertTrue: ${maestro.copiedText.length == 6}
+- tapOn: "Leave"
+- assertVisible: "Open tables"
+- assertVisible: ${maestro.copiedText}
+- assertVisible: "1/2 · seat open"

@@ -1,0 +1,22 @@
+url: http://localhost:3000
+name: Landing page
+tags:
+  - smoke
+---
+- launchApp:
+    clearState: true
+- openLink: ${BASE_URL}
+- assertVisible: "Meld, discard,"
+- assertVisible: "A FELINE TWIST ON CANASTA"
+- assertVisible: "Sign in to deal a new table or join a friend's game."
+- tapOn: "Rules"
+- assertVisible: "How a turn works"
+- scrollUntilVisible:
+    element: "Red Three"
+- assertVisible: "Card values"
+- assertVisible: "Black Three"
+# Guests can read the chat but not post.
+- tapOn:
+    id: "chat-toggle"
+- assertVisible: "Lobby chat"
+- assertVisible: "Log in to chat"

@@ -1,0 +1,5 @@
+# Maestro workspace: run with `maestro test --headless -p web e2e`
+flows:
+  - flows/*
+executionOrder:
+  continueOnFailure: false
