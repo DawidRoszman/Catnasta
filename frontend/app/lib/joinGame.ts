@@ -1,6 +1,5 @@
 import axios from "axios";
 import { api } from "./api";
-import client from "./mqtt";
 
 export const joinGame = async (
   gameId: string,
@@ -15,13 +14,5 @@ export const joinGame = async (
     alert(response.data.msg);
     return;
   }
-  client.publish(
-    "catnasta-game",
-    JSON.stringify({
-      type: "PLAYER_JOINED",
-      id: response.data.id,
-      name: username,
-    }),
-  );
   router.push("/game/" + response.data.id);
 };

@@ -7,7 +7,7 @@ import {
   useReducer,
 } from "react";
 import { Action, Game, Type, gameReducer } from "./gameReducer";
-import client from "@/app/lib/mqtt";
+import client from "@/app/lib/socket";
 import { useRouter } from "next/navigation";
 import { useUserContext } from "@/app/components/UserContext";
 

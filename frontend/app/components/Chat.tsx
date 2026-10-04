@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect } from "react";
-import client from "../lib/mqtt";
+import client from "../lib/socket";
 import axios from "axios";
 import { useCookies } from "next-client-cookies";
 import { api } from "../lib/api";
@@ -12,7 +12,7 @@ interface Message {
   message: string;
 }
 
-const MqttChat = () => {
+const Chat = () => {
   const cookies = useCookies();
   const userContext = useUserContext();
   const [message, setMessage] = React.useState("");
@@ -223,4 +223,4 @@ const MqttChat = () => {
   );
 };
 
-export default MqttChat;
+export default Chat;

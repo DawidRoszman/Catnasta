@@ -1,4 +1,3 @@
-import mqtt from "mqtt";
 import {
   addToMeld,
   calculatePlayerScore,
@@ -12,11 +11,12 @@ import {
 } from "./game";
 import { Game, GameState } from "./types/types";
 import { MongoClient } from "mongodb";
+import { Broker } from "./socket";
 
 export const games: Game[] = [];
 
 export function startRoundDispatch(
-  client: mqtt.MqttClient,
+  client: Broker,
   gameState: GameState,
   msg: any,
 ) {
@@ -96,7 +96,7 @@ export function startRoundDispatch(
 }
 
 export const drawCardDispatch = (
-  client: mqtt.MqttClient,
+  client: Broker,
   gameState: GameState,
   msg: any,
 ) => {
@@ -184,7 +184,7 @@ export const drawCardDispatch = (
 };
 
 export const discardCardDispatch = async (
-  client: mqtt.MqttClient,
+  client: Broker,
   gameState: GameState,
   msg: any,
   mongoClient: MongoClient,
@@ -317,7 +317,7 @@ export const discardCardDispatch = async (
 };
 
 export const meldCardDispatch = (
-  client: mqtt.MqttClient,
+  client: Broker,
   gameState: GameState,
   msg: any,
 ) => {
@@ -421,7 +421,7 @@ export const meldCardDispatch = (
 };
 
 export const dispatchAddToMeld = (
-  client: mqtt.MqttClient,
+  client: Broker,
   gameState: GameState,
   msg: any,
 ) => {
@@ -494,7 +494,7 @@ export const dispatchAddToMeld = (
 };
 
 export const pickUpPileDispatch = (
-  client: mqtt.MqttClient,
+  client: Broker,
   gameState: GameState,
   msg: any,
 ) => {

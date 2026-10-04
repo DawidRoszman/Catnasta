@@ -1,7 +1,7 @@
 "use client";
 import React from "react";
 import { useGameContext, useGameDispatch } from "./GameContext";
-import client from "@/app/lib/mqtt";
+import client from "@/app/lib/socket";
 import { useUserContext } from "@/app/components/UserContext";
 import { Type } from "./gameReducer";
 

@@ -1,6 +1,5 @@
 "use client";
 import React, { use, useEffect } from "react";
-import client from "@/app/lib/mqtt";
 import { GameContextProvider } from "./components/GameContext";
 const GameLayout = ({
   children,

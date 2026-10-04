@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect } from "react";
 import { Game } from "../page";
-import client from "@/app/lib/mqtt";
+import client from "@/app/lib/socket";
 import { joinGame } from "@/app/lib/joinGame";
 import { useUserContext } from "@/app/components/UserContext";
 import { useRouter } from "next/navigation";

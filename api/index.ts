@@ -1,5 +1,4 @@
 import express, { Express, Request, Response } from "express";
-import mqtt from "mqtt";
 import cors from "cors";
 import fs from "fs";
 import https from "https";
@@ -15,13 +14,10 @@ import {
 import { MongoClient, ObjectId, ServerApiVersion } from "mongodb";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
+import { createBroker } from "./src/socket";
 
 require("dotenv").config();
 
-const clientId = "mqttjs_server_" + Math.random().toString(16).slice(2, 8);
-const client = mqtt.connect("wss://broker.emqx.io:8084/mqtt", {
-  clientId: clientId,
-});
 // Read connection details from environment variables
 const DB_URI = process.env.DB_URI;
 const DB_USER = process.env.DB_USER;
@@ -87,19 +83,20 @@ function authenticateToken(req: Request, res: Response, next: any) {
     },
   );
 }
-client.publish("catnasta", "Hello mqtt");
 
 const app: Express = express();
 const port = 5001;
 app.use(express.json());
 app.use(cors());
 
-client.subscribe("catnasta/chat");
-client.subscribe("catnasta/game");
+const server = app.listen(port, () => {
+  console.log(`[server]: Server is running at http://localhost:${port}`);
+});
+const broker = createBroker(server);
 
-client.on("message", async (topic, message) => {
+broker.onMessage(async (topic, message) => {
   if (topic === "catnasta/chat") {
-    const msg = JSON.parse(message.toString());
+    const msg = JSON.parse(message);
     if (!msg.username || !msg.message) {
       return;
     }
@@ -111,7 +108,7 @@ client.on("message", async (topic, message) => {
     });
   }
   if (topic === "catnasta/game") {
-    const msg = JSON.parse(message.toString());
+    const msg = JSON.parse(message);
     const game = games.find((game) => game.gameId === msg.id);
     if (game === undefined) {
       return;
@@ -128,7 +125,7 @@ client.on("message", async (topic, message) => {
         if (msg.name === undefined) {
           return;
         }
-        client.publish(
+        broker.publish(
           `catnasta/game/${msg.id}`,
           JSON.stringify({
             type: "PLAYER_JOINED",
@@ -137,11 +134,11 @@ client.on("message", async (topic, message) => {
           }),
         );
         if (gameState.player1.name && gameState.player2.name) {
-          startRoundDispatch(client, gameState, msg);
+          startRoundDispatch(broker, gameState, msg);
         }
         break;
       case "PLAYER_LEFT":
-        client.publish(
+        broker.publish(
           `catnasta/game/${msg.id}`,
           JSON.stringify({
             type: "PLAYER_LEFT",
@@ -150,19 +147,19 @@ client.on("message", async (topic, message) => {
         );
         break;
       case "DRAW_FROM_STOCK":
-        drawCardDispatch(client, gameState, msg);
+        drawCardDispatch(broker, gameState, msg);
         break;
       case "DISCARD_CARD":
-        discardCardDispatch(client, gameState, msg, mongoClient, games);
+        discardCardDispatch(broker, gameState, msg, mongoClient, games);
         break;
       case "MELD_CARDS":
-        meldCardDispatch(client, gameState, msg);
+        meldCardDispatch(broker, gameState, msg);
         break;
       case "ADD_TO_MELD":
-        dispatchAddToMeld(client, gameState, msg);
+        dispatchAddToMeld(broker, gameState, msg);
         break;
       case "PICKUP_DISCARD_PILE":
-        pickUpPileDispatch(client, gameState, msg);
+        pickUpPileDispatch(broker, gameState, msg);
         break;
     }
   }
@@ -293,7 +290,7 @@ app.post("/send", authenticateToken, async (req: Request, res: Response) => {
       .send({ msg: "You are not authorized to view this page" });
   }
   const message = req.body.message;
-  client.publish("catnasta/messages", JSON.stringify({ message: message }));
+  broker.publish("catnasta/messages", JSON.stringify({ message: message }));
   fs.appendFileSync("log.json", JSON.stringify(message));
   res.status(200).send({ msg: "Message sent" });
 });
@@ -575,7 +572,7 @@ app.post("/create_game", async (req: Request, res: Response) => {
     },
   };
   games.push(game);
-  client.publish(
+  broker.publish(
     "catnasta/game_list",
     JSON.stringify(
       games.map((game) => {
@@ -616,7 +613,7 @@ app.put("/join_game", async (req: Request, res: Response) => {
     games.map((game) => {
       if (game.gameId === id) return updatedGame;
     });
-    client.publish(
+    broker.publish(
       "catnasta/game_list",
       JSON.stringify(
         games.map((game) => {
@@ -645,6 +642,3 @@ app.put("/join_game", async (req: Request, res: Response) => {
 //   .listen(port, () => {
 //     console.log(`[server]: Server is running at http://localhost:${port}`);
 //   });
-app.listen(port, () => {
-  console.log(`[server]: Server is running at http://localhost:${port}`);
-});

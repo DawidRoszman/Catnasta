@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import client from "../lib/mqtt";
+import client from "../lib/socket";
 
 const Messages = () => {
   const [incomingMessage, setIncomingMessage] = useState("");

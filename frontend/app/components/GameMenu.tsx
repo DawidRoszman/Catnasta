@@ -1,7 +1,6 @@
 "use client";
 import axios from "axios";
 import React from "react";
-import client from "../lib/mqtt";
 import { api } from "../lib/api";
 import { useUserContext, useUserDispatch } from "./UserContext";
 import { useRouter } from "next/navigation";
