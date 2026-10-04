@@ -7,6 +7,8 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 
 COPY . .
+# public/ may be absent in a fresh clone (git doesn't keep empty folders).
+RUN mkdir -p public
 
 # Baked into the client bundle at build time. "/api" keeps the browser on
 # this origin; rewrites forward it to the API inside the Docker network.
