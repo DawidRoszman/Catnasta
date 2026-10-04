@@ -1,6 +1,5 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@plugin "daisyui";
 
 /* width */
 ::-webkit-scrollbar {
@@ -10,17 +9,17 @@
 
 /* Track */
 ::-webkit-scrollbar-track {
-  background: oklch(var(--b3));
+  background: var(--color-base-300);
   border-radius: 50px;
 }
 
 /* Handle */
 ::-webkit-scrollbar-thumb {
-  background: oklch(var(--p));
+  background: var(--color-primary);
   border-radius: 50px;
 }
 
 /* Handle on hover */
 ::-webkit-scrollbar-thumb:hover {
-  background: oklch(var(--s));
+  background: var(--color-secondary);
 }

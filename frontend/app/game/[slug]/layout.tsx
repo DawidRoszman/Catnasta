@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect } from "react";
+import React, { use, useEffect } from "react";
 import client from "@/app/lib/mqtt";
 import { GameContextProvider } from "./components/GameContext";
 const GameLayout = ({
@@ -7,11 +7,12 @@ const GameLayout = ({
   params,
 }: {
   children: React.ReactNode;
-  params: { slug: string; };
+  params: Promise<{ slug: string }>;
 }) => {
+  const { slug } = use(params);
 
   return (
-    <GameContextProvider gameId={params.slug}>{children}</GameContextProvider>
+    <GameContextProvider gameId={slug}>{children}</GameContextProvider>
   );
 };
 

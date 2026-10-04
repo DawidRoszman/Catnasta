@@ -11,7 +11,7 @@ export interface Game {
 }
 
 const Game = async () => {
-  const cookies = getCookies();
+  const cookies = await getCookies();
   if (cookies.get("token") === undefined) {
     redirect("/login");
   }
