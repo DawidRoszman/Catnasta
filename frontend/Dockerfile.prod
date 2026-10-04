@@ -13,7 +13,7 @@ RUN mkdir -p public
 # Baked into the client bundle at build time. "/api" keeps the browser on
 # this origin; rewrites forward it to the API inside the Docker network.
 ARG NEXT_PUBLIC_API_URL=/api
-ARG API_INTERNAL_URL=http://api:5001
+ARG API_INTERNAL_URL=http://catnasta-api:5001
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
     API_INTERNAL_URL=$API_INTERNAL_URL \
     NEXT_TELEMETRY_DISABLED=1

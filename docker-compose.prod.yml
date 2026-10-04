@@ -1,10 +1,11 @@
-# Production stack. Nothing is published on the host: the frontend is the only
-# entry point and reaches the API internally; the API and MongoDB sit on an
-# internal network with no route in or out.
+# Production stack for Dokploy. Nothing is published on the host: Dokploy's
+# Traefik reaches the frontend over dokploy-network, the frontend proxies /api
+# and /ws to the API internally, and the API and MongoDB sit on an internal
+# network with no route in or out.
 #
-#   cp .env.example .env   # then fill in the secrets
-#   docker compose -f docker-compose.prod.yml up -d --build
-#   docker compose -f docker-compose.prod.yml --profile tunnel up -d --build   # with Cloudflare Tunnel
+# In Dokploy: Compose path = docker-compose.prod.yml, set the variables from
+# .env.example in the Environment tab, then add a domain for service
+# "frontend" on port 3000.
 name: catnasta-prod
 
 services:
@@ -36,7 +37,11 @@ services:
       DB_URI: mongodb://${MONGO_USER}:${MONGO_PASSWORD}@mongo:27017/catnasta?authSource=admin
       TOKEN_SECRET: ${TOKEN_SECRET:?set TOKEN_SECRET in .env}
     networks:
-      - backend
+      backend:
+        # Unique name so it can't collide with other apps' "api" services that
+        # the frontend also sees on dokploy-network.
+        aliases:
+          - catnasta-api
 
   frontend:
     build:
@@ -44,44 +49,27 @@ services:
       dockerfile: Dockerfile.prod
       args:
         NEXT_PUBLIC_API_URL: /api
-        API_INTERNAL_URL: http://api:5001
+        API_INTERNAL_URL: http://catnasta-api:5001
     restart: unless-stopped
     depends_on:
       api:
         condition: service_healthy
     environment:
       # Server-side rendering calls the API directly over the internal network.
-      API_URL: http://api:5001
+      API_URL: http://catnasta-api:5001
+    expose:
+      - "3000"
     networks:
       - backend
-      - edge
-    # Only needed if cloudflared (or another proxy) runs on the host instead of
-    # in this stack; keeps the port bound to localhost.
-    # ports:
-    #   - "127.0.0.1:3000:3000"
-
-  # Optional Cloudflare Tunnel. It dials out to Cloudflare, so no inbound port
-  # is needed. In the Cloudflare dashboard point the tunnel's public hostname
-  # at http://frontend:3000.
-  cloudflared:
-    image: cloudflare/cloudflared:latest
-    profiles: ["tunnel"]
-    restart: unless-stopped
-    command: tunnel --no-autoupdate run
-    environment:
-      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
-    depends_on:
-      frontend:
-        condition: service_healthy
-    networks:
-      - edge
+      - dokploy-network
 
 networks:
   # No external connectivity: only the frontend can reach the API and MongoDB.
   backend:
     internal: true
-  # The frontend and the tunnel; has outbound internet for cloudflared.
-  edge: {}
+  # Dokploy's shared network, where its Traefik routes your domain from.
+  dokploy-network:
+    external: true
 
 volumes:
   mongo_data:

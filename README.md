@@ -115,22 +115,23 @@ The frontend is served at http://localhost:3000 and the API at http://localhost:
 
 ## Deploying
 
-`docker-compose.prod.yml` runs production builds and publishes no ports. The
-frontend is the only entry point: it proxies `/api/*` and the `/ws` WebSocket
-to the API over Docker's internal network, and the API and MongoDB live on an
-internal-only network that nothing outside the stack can reach.
+`docker-compose.prod.yml` runs production builds and publishes no ports. It's
+set up for [Dokploy](https://dokploy.com): the frontend joins Dokploy's
+`dokploy-network`, where its Traefik proxy routes your domain. The frontend
+proxies `/api/*` and the `/ws` WebSocket to the API over an internal-only
+network, so the API and MongoDB are never reachable from outside.
 
-```sh
-cp .env.example .env    # set MONGO_PASSWORD and TOKEN_SECRET (openssl rand -hex 32)
-docker compose -f docker-compose.prod.yml up -d --build
-```
+1. Create a **Docker Compose** service in Dokploy from this repository and set
+   the compose path to `docker-compose.prod.yml`.
+2. In **Environment**, set the variables from `.env.example`
+   (`TOKEN_SECRET`: `openssl rand -hex 32`).
+3. In **Domains**, add your domain for service `frontend`, port `3000`.
+4. In Cloudflare, point an `A` record for the domain at the Dokploy server.
+   WebSockets work through Cloudflare's proxy without extra setup.
 
-HTTPS is left to Cloudflare. With a Cloudflare Tunnel nothing needs to be
-opened on the server: put the tunnel token in `.env`, start the stack with
-`--profile tunnel`, and route the tunnel's public hostname to
-`http://frontend:3000`. If `cloudflared` runs on the host instead, uncomment the
-`127.0.0.1:3000:3000` port mapping in `docker-compose.prod.yml` and point it at
-`http://localhost:3000`. WebSockets work through Cloudflare without extra setup.
+To run it locally, create the network once with
+`docker network create dokploy-network`, copy `.env.example` to `.env`, and run
+`docker compose -f docker-compose.prod.yml up -d --build`.
 
 ## End-to-end tests
 
