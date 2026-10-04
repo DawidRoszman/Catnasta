@@ -32,8 +32,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${fraunces.variable} ${manrope.variable}`}>
-      <body>
+    // Extensions such as LanguageTool and Grammarly add attributes to <html> and
+    // <body> before React hydrates; ignore those (this only applies one level deep).
+    <html
+      lang="en"
+      className={`${fraunces.variable} ${manrope.variable}`}
+      suppressHydrationWarning
+    >
+      <body suppressHydrationWarning>
         <CookiesProvider>
           <FeedbackProvider>
             <UserContextProvider>
