@@ -20,7 +20,7 @@ name: Join a table and play a turn on the 3D board
       notVisible: "Your turn — draw from the stock or take the discard pile"
     times: 8
     commands:
-      - assertVisible: ${output.opponent + " is thinking…"}
+      - assertVisible: ${"Waiting for " + output.opponent + " to come back…"}
       - runFlow: ../subflows/join-opponent-table.yaml
 
 - assertVisible: "Your turn — draw from the stock or take the discard pile"
@@ -35,7 +35,7 @@ name: Join a table and play a turn on the 3D board
 - takeScreenshot: play-turn-2-selected
 - tapOn: "Discard"
 - extendedWaitUntil:
-    visible: ${output.opponent + " is thinking…"}
+    visible: ${"Waiting for " + output.opponent + " to come back…"}
     timeout: 10000
 - assertNotVisible: "1 selected"
 - takeScreenshot: play-turn-3-discarded

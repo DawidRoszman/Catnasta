@@ -15,7 +15,11 @@ name: Deal a table and wait for an opponent
 - copyTextFrom:
     id: "game-code"
 - assertTrue: ${maestro.copiedText.length == 6}
-- tapOn: "Leave"
+# Stepping away keeps the table open for a while, and the site offers a way back.
+- openLink: ${BASE_URL}/game
 - assertVisible: "Open tables"
 - assertVisible: ${maestro.copiedText}
 - assertVisible: "1/2 · seat open"
+- extendedWaitUntil:
+    visible: "Your table is open"
+    timeout: 10000
