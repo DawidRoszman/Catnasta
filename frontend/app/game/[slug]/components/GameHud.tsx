@@ -6,11 +6,13 @@ import {
   Check,
   Copy,
   CircleHelp,
+  DoorOpen,
   Layers,
   PawPrint,
   Sparkles,
   Trash2,
   Trophy,
+  WifiOff,
   X,
 } from "lucide-react";
 import { Button, ButtonLink } from "@/app/components/ui/Button";
@@ -21,7 +23,7 @@ import Spinner from "@/app/components/ui/Spinner";
 import { cn } from "@/app/lib/cn";
 import type { Game } from "./gameReducer";
 
-export type Phase = "loading" | "waiting" | "draw" | "play" | "opponent" | "over";
+export type Phase = "loading" | "waiting" | "draw" | "play" | "opponent" | "over" | "closed";
 
 type GameHudProps = {
   game: Game;
@@ -34,6 +36,7 @@ type GameHudProps = {
   onConfirmMelds: () => void;
   onDiscard: () => void;
   onClearSelection: () => void;
+  onLeave: () => void;
 };
 
 export default function GameHud(props: GameHudProps) {
@@ -46,9 +49,9 @@ export default function GameHud(props: GameHudProps) {
       {/* Top bar */}
       <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-3 sm:p-4">
         <div className="pointer-events-auto flex items-center gap-2">
-          <ButtonLink href="/game" variant="secondary" size="icon" aria-label="Back to lobby">
+          <Button id="leave-button" variant="secondary" size="icon" onClick={props.onLeave} aria-label="Leave table">
             <ArrowLeft className="h-5 w-5" />
-          </ButtonLink>
+          </Button>
           <GameCode code={game.gameId} />
         </div>
 
@@ -66,6 +69,7 @@ export default function GameHud(props: GameHudProps) {
             score={player2.score}
             cards={player2.name ? player2.num_of_cards_in_hand : undefined}
             active={phase === "opponent"}
+            away={Boolean(player2.name) && !game.opponentPresence.online}
           />
         </div>
 
@@ -77,10 +81,17 @@ export default function GameHud(props: GameHudProps) {
       </div>
 
       {/* Action dock */}
-      {phase !== "waiting" && phase !== "over" && phase !== "loading" && <ActionDock {...props} />}
+      {(phase === "draw" || phase === "play" || phase === "opponent") && <ActionDock {...props} />}
 
-      {phase === "waiting" && <WaitingRoom code={game.gameId} opponent={player2.name} />}
+      {(phase === "draw" || phase === "play" || phase === "opponent") &&
+        !game.opponentPresence.online && (
+          <OpponentAwayBanner name={player2.name} forfeitAt={game.opponentPresence.forfeitAt} />
+        )}
+      {phase === "waiting" && (
+        <WaitingRoom code={game.gameId} opponent={player2.name} onLeave={props.onLeave} />
+      )}
       <GameOverModal game={game} open={phase === "over"} />
+      <TableClosedModal open={phase === "closed"} host={player2.name} />
       <RulesModal open={rulesOpen} onClose={() => setRulesOpen(false)} />
     </>
   );
@@ -125,12 +136,14 @@ function PlayerPlate({
   score,
   cards,
   active,
+  away = false,
 }: {
   label: string;
   name: string;
   score: number;
   cards?: number;
   active: boolean;
+  away?: boolean;
 }) {
   return (
     <div
@@ -141,16 +154,26 @@ function PlayerPlate({
     >
       <span
         className={cn(
-          "grid h-9 w-9 place-items-center rounded-lg font-display text-base uppercase",
+          "relative grid h-9 w-9 place-items-center rounded-lg font-display text-base uppercase",
           active ? "bg-brass text-felt-950" : "bg-felt-600 text-cream-dim",
+          away && "opacity-50",
         )}
       >
         {name.charAt(0) || "?"}
+        {away && (
+          <span className="absolute -bottom-1 -right-1 grid h-4 w-4 place-items-center rounded-full bg-coral text-felt-950">
+            <WifiOff className="h-2.5 w-2.5" aria-hidden />
+          </span>
+        )}
       </span>
       <div className="min-w-0 flex-1 leading-tight">
         <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">
           {label}
-          {active && <span className="ml-1.5 text-brass">· turn</span>}
+          {away ? (
+            <span className="ml-1.5 text-coral">· away</span>
+          ) : (
+            active && <span className="ml-1.5 text-brass">· turn</span>
+          )}
         </p>
         <p className="truncate text-sm font-semibold text-cream">{name}</p>
       </div>
@@ -174,7 +197,7 @@ function StockPlate({ count }: { count: number }) {
   );
 }
 
-const STATUS: Record<Exclude<Phase, "loading" | "waiting" | "over">, (opponent: string) => string> = {
+const STATUS: Record<Exclude<Phase, "loading" | "waiting" | "over" | "closed">, (opponent: string) => string> = {
   draw: () => "Your turn — draw from the stock or take the discard pile",
   play: () => "Select cards to meld, then discard one to end your turn",
   opponent: (opponent) => `${opponent} is thinking…`,
@@ -192,7 +215,7 @@ function ActionDock({
   onDiscard,
   onClearSelection,
 }: GameHudProps) {
-  if (phase === "loading" || phase === "waiting" || phase === "over") {
+  if (phase === "loading" || phase === "waiting" || phase === "over" || phase === "closed") {
     return null;
   }
   return (
@@ -207,7 +230,9 @@ function ActionDock({
           ) : (
             <span className="h-2 w-2 rounded-full bg-brass shadow-[0_0_10px_rgb(227_169_75)]" />
           )}
-          {STATUS[phase](game.gameState.player2.name)}
+          {phase === "opponent" && !game.opponentPresence.online
+            ? `Waiting for ${game.gameState.player2.name} to come back…`
+            : STATUS[phase](game.gameState.player2.name)}
         </p>
         <div className="flex flex-wrap items-center justify-center gap-2">
           {phase === "draw" && (
@@ -247,7 +272,15 @@ function ActionDock({
   );
 }
 
-function WaitingRoom({ code, opponent }: { code: string; opponent: string }) {
+function WaitingRoom({
+  code,
+  opponent,
+  onLeave,
+}: {
+  code: string;
+  opponent: string;
+  onLeave: () => void;
+}) {
   const toast = useToast();
   const share = async () => {
     const url = window.location.href;
@@ -283,9 +316,9 @@ function WaitingRoom({ code, opponent }: { code: string; opponent: string }) {
           <Button variant="secondary" onClick={share}>
             <Copy className="h-4 w-4" />Copy invite link
           </Button>
-          <ButtonLink href="/game" variant="ghost">
+          <Button variant="ghost" onClick={onLeave}>
             Leave
-          </ButtonLink>
+          </Button>
         </div>
       </Panel>
     </div>
@@ -294,8 +327,19 @@ function WaitingRoom({ code, opponent }: { code: string; opponent: string }) {
 
 function GameOverModal({ game, open }: { game: Game; open: boolean }) {
   const router = useRouter();
-  const { winner, loser } = game.gameResult;
-  const youWon = winner?.name === game.gameState.player1.name;
+  const { winner, loser, reason, forfeitedBy } = game.gameResult;
+  const me = game.gameState.player1.name;
+  const youWon = winner?.name === me;
+  const forfeit = reason === "forfeit" || reason === "left";
+  const description = !forfeit
+    ? youWon
+      ? "A purr-fect game."
+      : "Good game — shuffle up and try again."
+    : forfeitedBy === me
+      ? "You left the table, so the game was forfeited."
+      : reason === "left"
+        ? `${forfeitedBy} left the table — you win by forfeit.`
+        : `${forfeitedBy} didn't come back in time — you win by forfeit.`;
   return (
     <Modal
       open={open}
@@ -306,7 +350,7 @@ function GameOverModal({ game, open }: { game: Game; open: boolean }) {
           {youWon ? "You win!" : `${winner?.name ?? "Your opponent"} wins`}
         </span>
       }
-      description={youWon ? "A purr-fect game." : "Good game — shuffle up and try again."}
+      description={description}
       footer={
         <>
           <Button variant="ghost" onClick={() => router.push("/")}>
@@ -381,5 +425,70 @@ export function RulesModal({ open, onClose }: { open: boolean; onClose: () => vo
         </section>
       </div>
     </Modal>
+  );
+}
+
+function formatDuration(seconds: number) {
+  if (seconds < 60) {
+    return `${seconds} seconds`;
+  }
+  const minutes = Math.floor(seconds / 60);
+  const rest = seconds % 60;
+  return rest ? `${minutes} min ${rest} s` : `${minutes} min`;
+}
+
+function OpponentAwayBanner({ name, forfeitAt }: { name: string; forfeitAt: number | null }) {
+  // Keyed by the deadline so this is measured once; the bar drains in CSS
+  // rather than re-rendering every second.
+  return <AwayBannerContent key={forfeitAt ?? "none"} name={name} forfeitAt={forfeitAt} />;
+}
+
+function AwayBannerContent({ name, forfeitAt }: { name: string; forfeitAt: number | null }) {
+  const [seconds] = useState(() =>
+    forfeitAt === null ? null : Math.max(0, Math.round((forfeitAt - Date.now()) / 1000)),
+  );
+  return (
+    <div className="pointer-events-none absolute inset-x-0 top-20 flex justify-center px-4 md:top-24">
+      <div
+        id="opponent-away"
+        role="status"
+        className="pointer-events-auto relative max-w-lg overflow-hidden rounded-2xl bg-surface/95 ring-1 ring-coral/50 shadow-card backdrop-blur-md animate-pop-in"
+      >
+        <div className="flex items-center gap-3 px-4 py-3">
+          <WifiOff className="h-5 w-5 shrink-0 text-coral" aria-hidden />
+          <p className="text-sm text-cream-dim">
+            <span className="font-semibold text-cream">{`${name} isn't at the table.`}</span>{" "}
+            {seconds !== null
+              ? `If they don't return within ${formatDuration(seconds)}, you win by forfeit.`
+              : "Waiting for them to return…"}
+          </p>
+        </div>
+        {seconds !== null && (
+          <span
+            aria-hidden
+            className="absolute inset-x-0 bottom-0 h-0.5 origin-left bg-coral"
+            style={{ animation: `drain ${seconds}s linear forwards` }}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TableClosedModal({ open, host }: { open: boolean; host: string }) {
+  const router = useRouter();
+  return (
+    <Modal
+      open={open}
+      dismissible={false}
+      title={
+        <span className="flex items-center gap-3">
+          <DoorOpen className="h-7 w-7 text-brass" />
+          Table closed
+        </span>
+      }
+      description={`${host || "The host"} closed this table before the game started.`}
+      footer={<Button onClick={() => router.push("/game")}>Back to lobby</Button>}
+    />
   );
 }

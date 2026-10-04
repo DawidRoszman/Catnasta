@@ -37,7 +37,11 @@ function createInitialGame({ gameId, username }: { gameId: string; username: str
     gameResult: {
       winner: null,
       loser: null,
+      reason: "score",
+      forfeitedBy: null,
     },
+    opponentPresence: { online: true, forfeitAt: null },
+    closed: false,
     gameState: {
       gameOver: false,
       turn: null,
@@ -88,9 +92,15 @@ export function GameContextProvider({
     if (!username) {
       return;
     }
+    const fresh = createInitialGame({ gameId, username });
     dispatch({
       type: Type.SET,
-      payload: { gameState: createInitialGame({ gameId, username }).gameState },
+      payload: {
+        gameState: fresh.gameState,
+        gameResult: fresh.gameResult,
+        opponentPresence: fresh.opponentPresence,
+        closed: false,
+      },
     });
 
     const gameTopic = `catnasta/game/${gameId}`;
@@ -126,10 +136,29 @@ export function GameContextProvider({
             type: Type.SET_CURRENT_PLAYER,
             payload: msg.current_player,
           });
+          // Rejoining mid-turn: the server remembers whether we already drew.
+          if (msg.has_drawn && msg.current_player === username) {
+            dispatch({ type: Type.PLAYER_DRAW_CARD, payload: { name: username } });
+          }
+          break;
+        case "PRESENCE":
+          if (msg.player !== username) {
+            dispatch({
+              type: Type.SET_OPPONENT_PRESENCE,
+              payload: { online: msg.online, forfeitAt: msg.forfeit_at },
+            });
+          }
           break;
         case "PLAYER_LEFT":
           if (msg.player !== username) {
+            // They left before the game started; the seat is free again.
+            dispatch({ type: Type.SET_SECOND_PLAYER, payload: { name: "" } });
             toast(`${msg.player} left the table.`);
+          }
+          break;
+        case "TABLE_CLOSED":
+          if (msg.player !== username) {
+            dispatch({ type: Type.TABLE_CLOSED, payload: null });
           }
           break;
         case "EDIT_STOCK_CARD_COUNT":
@@ -208,6 +237,8 @@ export function GameContextProvider({
             payload: {
               winner: msg.winner,
               loser: msg.loser,
+              reason: msg.reason ?? "score",
+              forfeitedBy: msg.forfeited_by ?? null,
             },
           });
           dispatch({

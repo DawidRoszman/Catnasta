@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import client from "@/app/lib/socket";
 import { useUserContext } from "@/app/components/UserContext";
 import { useConfirm, useToast } from "@/app/components/ui/Feedback";
@@ -22,6 +23,7 @@ export default function GameBoard() {
   const user = useUserContext();
   const toast = useToast();
   const confirm = useConfirm();
+  const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [staged, setStaged] = useState<string[][]>([]);
 
@@ -31,7 +33,9 @@ export default function GameBoard() {
 
   const phase: Phase = !gameState
     ? "loading"
-    : gameState.gameOver
+    : game.closed
+      ? "closed"
+      : gameState.gameOver
       ? "over"
       : !gameState.player2.name || gameState.turn === null
         ? "waiting"
@@ -216,6 +220,36 @@ export default function GameBoard() {
     clearSelection();
   };
 
+  const leave = async () => {
+    if (phase === "over" || phase === "closed" || phase === "loading") {
+      router.push("/game");
+      return;
+    }
+    const opponent = gameState.player2.name;
+    const ok = await confirm(
+      phase === "waiting"
+        ? {
+            title: "Close this table?",
+            message: opponent
+              ? `${opponent} will be sent back to the lobby.`
+              : "Nobody will be able to join it any more.",
+            confirmLabel: "Close table",
+          }
+        : {
+            title: "Forfeit the game?",
+            message: `Leaving now ends the game and hands the win to ${opponent}.`,
+            confirmLabel: "Forfeit and leave",
+            cancelLabel: "Keep playing",
+            danger: true,
+          },
+    );
+    if (!ok) {
+      return;
+    }
+    send("LEAVE_GAME");
+    router.push("/game");
+  };
+
   const handleCardClick = (target: ClickTarget) => {
     switch (target.type) {
       case "hand":
@@ -271,6 +305,7 @@ export default function GameBoard() {
         onConfirmMelds={confirmMelds}
         onDiscard={discard}
         onClearSelection={clearSelection}
+        onLeave={leave}
       />
     </div>
   );

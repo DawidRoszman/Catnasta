@@ -33,6 +33,8 @@ export type Joker = {
   suit: "RED" | "BLACK";
 };
 
+export type EndReason = "score" | "forfeit" | "left";
+
 export interface Game {
   gameId: string;
   gameResult: {
@@ -44,7 +46,17 @@ export interface Game {
       name: string;
       points: number;
     } | null;
+    reason: EndReason;
+    forfeitedBy: string | null;
   };
+  /** The opponent's connection, as reported by the server. */
+  opponentPresence: {
+    online: boolean;
+    /** Epoch ms when they forfeit unless they return. */
+    forfeitAt: number | null;
+  };
+  /** The host closed the table before the game started. */
+  closed: boolean;
   gameState: {
     gameOver: boolean;
     turn: string | null;
@@ -88,6 +100,8 @@ export enum Type {
   SET_GAME_RESULT,
   UPDATE_SCORE,
   PLAYER_DRAW_CARD,
+  SET_OPPONENT_PRESENCE,
+  TABLE_CLOSED,
 }
 
 export interface Action {
@@ -237,7 +251,17 @@ export const gameReducer = (state: Game, action: Action): Game => {
     case Type.SET_GAME_RESULT:
       return {
         ...state,
-        gameResult: payload,
+        gameResult: { reason: "score", forfeitedBy: null, ...payload },
+      };
+    case Type.SET_OPPONENT_PRESENCE:
+      return {
+        ...state,
+        opponentPresence: payload,
+      };
+    case Type.TABLE_CLOSED:
+      return {
+        ...state,
+        closed: true,
       };
     case Type.UPDATE_SCORE:
       return {

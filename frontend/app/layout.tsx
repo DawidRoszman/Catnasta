@@ -6,6 +6,7 @@ import { UserContextProvider } from "./components/UserContext";
 import { FeedbackProvider } from "./components/ui/Feedback";
 import Announcements from "./components/Announcements";
 import SiteHeader from "./components/SiteHeader";
+import ActiveGameBanner from "./components/ActiveGameBanner";
 
 const fraunces = Fraunces({
   subsets: ["latin"],
@@ -48,6 +49,7 @@ export default function RootLayout({
                 {children}
               </div>
               <Announcements />
+              <ActiveGameBanner />
             </UserContextProvider>
           </FeedbackProvider>
         </CookiesProvider>
