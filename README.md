@@ -113,6 +113,25 @@ docker compose up -d --build
 
 The frontend is served at http://localhost:3000 and the API at http://localhost:5001.
 
+## Deploying
+
+`docker-compose.prod.yml` runs production builds and publishes no ports. The
+frontend is the only entry point: it proxies `/api/*` and the `/ws` WebSocket
+to the API over Docker's internal network, and the API and MongoDB live on an
+internal-only network that nothing outside the stack can reach.
+
+```sh
+cp .env.example .env    # set MONGO_PASSWORD and TOKEN_SECRET (openssl rand -hex 32)
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+HTTPS is left to Cloudflare. With a Cloudflare Tunnel nothing needs to be
+opened on the server: put the tunnel token in `.env`, start the stack with
+`--profile tunnel`, and route the tunnel's public hostname to
+`http://frontend:3000`. If `cloudflared` runs on the host instead, uncomment the
+`127.0.0.1:3000:3000` port mapping in `docker-compose.prod.yml` and point it at
+`http://localhost:3000`. WebSockets work through Cloudflare without extra setup.
+
 ## End-to-end tests
 
 The [Maestro](https://maestro.dev) web flows in `e2e/` cover the landing page, sign up and log in, dealing a table, playing a turn on the 3D board and the lobby chat. With the stack running, play them in a headless browser:

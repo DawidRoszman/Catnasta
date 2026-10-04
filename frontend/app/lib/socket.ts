@@ -3,7 +3,14 @@ import { api } from "./api";
 type MessageHandler = (topic: string, message: string) => void;
 
 const RECONNECT_DELAY = 1000;
-const socketUrl = api.replace(/^http/, "ws") + "/ws";
+/** Same-origin `/ws` when the API is proxied through this app, else the API's own /ws. */
+function socketUrl() {
+  if (api.startsWith("/")) {
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    return `${protocol}//${window.location.host}/ws`;
+  }
+  return api.replace(/^http/, "ws") + "/ws";
+}
 
 const topics = new Set<string>();
 const handlers = new Set<MessageHandler>();
@@ -11,7 +18,7 @@ const pending: string[] = [];
 let socket: WebSocket | null = null;
 
 function connect() {
-  socket = new WebSocket(socketUrl);
+  socket = new WebSocket(socketUrl());
 
   socket.onopen = () => {
     topics.forEach((topic) =>
