@@ -36,6 +36,8 @@ services:
     environment:
       DB_URI: mongodb://${MONGO_USER}:${MONGO_PASSWORD}@mongo:27017/catnasta?authSource=admin
       TOKEN_SECRET: ${TOKEN_SECRET:?set TOKEN_SECRET in .env}
+      # Seconds a player may be away from a running game before forfeiting.
+      FORFEIT_GRACE_SECONDS: ${FORFEIT_GRACE_SECONDS:-90}
     networks:
       backend:
         # Unique name so it can't collide with other apps' "api" services that

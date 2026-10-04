@@ -19,6 +19,7 @@ services:
     environment:
       DB_URI: mongodb://catnasta:catnasta@mongo:27017/catnasta?authSource=admin
       TOKEN_SECRET: dev-secret
+      FORFEIT_GRACE_SECONDS: ${FORFEIT_GRACE_SECONDS:-90}
     ports:
       - "5001:5001"
 

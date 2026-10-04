@@ -15,6 +15,7 @@ import { MongoClient, ObjectId, ServerApiVersion } from "mongodb";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import { createBroker } from "./src/socket";
+import { createLifecycle } from "./src/lifecycle";
 
 require("dotenv").config();
 
@@ -93,6 +94,7 @@ const server = app.listen(port, () => {
   console.log(`[server]: Server is running at http://localhost:${port}`);
 });
 const broker = createBroker(server);
+const lifecycle = createLifecycle(broker, mongoClient);
 
 broker.onMessage(async (topic, message) => {
   if (topic === "catnasta/chat") {
@@ -136,6 +138,10 @@ broker.onMessage(async (topic, message) => {
         if (gameState.player1.name && gameState.player2.name) {
           startRoundDispatch(broker, gameState, msg);
         }
+        lifecycle.sync(game);
+        break;
+      case "LEAVE_GAME":
+        lifecycle.leave(game, msg.name);
         break;
       case "PLAYER_LEFT":
         broker.publish(
@@ -501,6 +507,24 @@ app.get("/games", authenticateToken, async (req: Request, res: Response) => {
   return res.send(games);
 });
 
+app.get("/active_game", authenticateToken, (req: Request, res: Response) => {
+  const user = req.body.user.data;
+  const game = games.find(
+    ({ gameState }) =>
+      !gameState.gameOver &&
+      (gameState.player1.name === user || gameState.player2.name === user),
+  );
+  if (game === undefined) {
+    return res.send({});
+  }
+  const { player1, player2, gameStarted } = game.gameState;
+  return res.send({
+    id: game.gameId,
+    opponent: player1.name === user ? player2.name : player1.name,
+    started: gameStarted,
+  });
+});
+
 app.get(
   "/live_games",
   authenticateToken,
@@ -601,6 +625,10 @@ app.put("/join_game", async (req: Request, res: Response) => {
     return res.send({ msg: "Game not found" });
   }
   const { gameState } = game;
+  if (gameState.player1.name === name || gameState.player2.name === name) {
+    // Already seated: let the player back in.
+    return res.send({ id: id });
+  }
   if (gameState.player1.name && gameState.player2.name) {
     return res.send({ msg: "Game is full" });
   }

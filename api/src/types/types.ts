@@ -33,6 +33,8 @@ export interface Player {
 export interface GameState {
   gameStarted: boolean;
   turn: string;
+  /** Whether the player whose turn it is has already drawn this turn. */
+  hasDrawn?: boolean;
   gameOver: boolean;
   player1: Player;
   player2: Player;

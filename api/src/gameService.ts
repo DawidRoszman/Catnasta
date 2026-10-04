@@ -15,6 +15,26 @@ import { Broker } from "./socket";
 
 export const games: Game[] = [];
 
+export const gameListPayload = () =>
+  games.map((game) => ({
+    id: game.gameId,
+    players_in_game:
+      game.gameState.player1.name && game.gameState.player2.name ? 2 : 1,
+  }));
+
+export function publishGameList(client: Broker) {
+  client.publish("catnasta/game_list", JSON.stringify(gameListPayload()));
+}
+
+/** Drops a game from the live list and tells the lobby. */
+export function removeGame(client: Broker, gameId: string) {
+  const index = games.findIndex((game) => game.gameId === gameId);
+  if (index !== -1) {
+    games.splice(index, 1);
+  }
+  publishGameList(client);
+}
+
 export function startRoundDispatch(
   client: Broker,
   gameState: GameState,
@@ -25,6 +45,7 @@ export function startRoundDispatch(
     const playerTurn =
       Math.random() < 0.5 ? gameState.player1.name : gameState.player2.name;
     gameState.turn = playerTurn;
+    gameState.hasDrawn = false;
     gameState.gameStarted = true;
   }
   client.publish(
@@ -32,6 +53,7 @@ export function startRoundDispatch(
     JSON.stringify({
       type: "GAME_START",
       current_player: gameState.turn,
+      has_drawn: gameState.hasDrawn ?? false,
     }),
   );
   client.publish(
@@ -94,6 +116,25 @@ export function startRoundDispatch(
       stock_card_count: gameState.stock.length,
     }),
   );
+  // Melds and scores so a player who rejoins sees the table as it was.
+  for (const player of [gameState.player1, gameState.player2]) {
+    client.publish(
+      `catnasta/game/${msg.id}`,
+      JSON.stringify({
+        type: "MELDED_CARDS",
+        name: player.name,
+        melds: player.melds,
+      }),
+    );
+  }
+  client.publish(
+    `catnasta/game/${msg.id}`,
+    JSON.stringify({
+      type: "UPDATE_SCORE",
+      player1Score: { name: gameState.player1.name, score: gameState.player1.score },
+      player2Score: { name: gameState.player2.name, score: gameState.player2.score },
+    }),
+  );
 }
 
 export const drawCardDispatch = (
@@ -118,6 +159,10 @@ export const drawCardDispatch = (
     console.log("wrong turn");
     return;
   }
+  if (gameState.hasDrawn) {
+    console.log("already drew this turn");
+    return;
+  }
   if (gameState.stock.length === 0) {
     console.log("no cards in stock");
   }
@@ -131,6 +176,7 @@ export const drawCardDispatch = (
     return;
   }
   drawCard(gameState.stock, currPlayer);
+  gameState.hasDrawn = true;
   if (gameState.stock.length === 0) {
     gameState.gameOver = true;
   }
@@ -211,6 +257,10 @@ export const discardCardDispatch = async (
     console.log("no card id");
     return;
   }
+  if (!gameState.hasDrawn) {
+    console.log("must draw before discarding");
+    return;
+  }
 
   const player =
     msg.name === gameState.player1.name ? gameState.player1 : gameState.player2;
@@ -221,6 +271,7 @@ export const discardCardDispatch = async (
       ? gameState.player2.name
       : gameState.player1.name;
   gameState.turn = newTurn;
+  gameState.hasDrawn = false;
   const p1Score = calculatePlayerScore(gameState.player1);
   const p2Score = calculatePlayerScore(gameState.player2);
   gameState.player1.score = p1Score.points;
@@ -295,25 +346,7 @@ export const discardCardDispatch = async (
     );
     await mongoClient.connect();
     mongoClient.db("catnasta").collection("games").insertOne(gameState);
-    games.splice(
-      games.findIndex((game) => game.gameId === msg.id),
-      1,
-    );
-
-    client.publish(
-      "catnasta/game_list",
-      JSON.stringify(
-        games.map((game) => {
-          return {
-            id: game.gameId,
-            players_in_game:
-              game.gameState.player1.name && game.gameState.player2.name
-                ? 2
-                : 1,
-          };
-        }),
-      ),
-    );
+    removeGame(client, msg.id);
 
     return;
   }
@@ -517,6 +550,11 @@ export const pickUpPileDispatch = (
     return;
   }
 
+  if (gameState.hasDrawn) {
+    console.log("already drew this turn");
+    return;
+  }
+
   const player =
     msg.name === gameState.player1.name ? gameState.player1 : gameState.player2;
 
@@ -532,6 +570,7 @@ export const pickUpPileDispatch = (
     );
     return;
   }
+  gameState.hasDrawn = true;
 
   // Notify all players about the updated game state
   client.publish(
