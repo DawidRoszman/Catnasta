@@ -66,6 +66,7 @@ export interface Game {
       melds: (Card | Joker)[][];
     };
     discardPileTopCard: Card | Joker | null;
+    discardPileCount: number;
     stockCardCount: number;
   };
 }
@@ -94,7 +95,7 @@ export interface Action {
   payload: any;
 }
 
-export const gameReducer = (state: Game, action: Action) => {
+export const gameReducer = (state: Game, action: Action): Game => {
   const { type, payload } = action;
   switch (type) {
     case Type.SET:
@@ -191,7 +192,8 @@ export const gameReducer = (state: Game, action: Action) => {
         ...state,
         gameState: {
           ...state.gameState,
-          discardPileTopCard: payload,
+          discardPileTopCard: payload.card ?? null,
+          discardPileCount: payload.count ?? (payload.card ? 1 : 0),
         },
       };
     case Type.EDIT_PLAYER_MELDS:

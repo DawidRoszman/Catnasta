@@ -1,6 +1,7 @@
 "use client";
-import React, { use, useEffect } from "react";
+import React, { use } from "react";
 import { GameContextProvider } from "./components/GameContext";
+
 const GameLayout = ({
   children,
   params,
@@ -10,9 +11,7 @@ const GameLayout = ({
 }) => {
   const { slug } = use(params);
 
-  return (
-    <GameContextProvider gameId={slug}>{children}</GameContextProvider>
-  );
+  return <GameContextProvider gameId={slug}>{children}</GameContextProvider>;
 };
 
 export default GameLayout;

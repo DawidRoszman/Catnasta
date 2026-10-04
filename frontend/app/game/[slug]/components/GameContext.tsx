@@ -10,6 +10,7 @@ import { Action, Game, Type, gameReducer } from "./gameReducer";
 import client from "@/app/lib/socket";
 import { useRouter } from "next/navigation";
 import { useUserContext } from "@/app/components/UserContext";
+import { useToast } from "@/app/components/ui/Feedback";
 
 export const GameContext = createContext<Game | null>(null);
 export const GameDispatchContext = createContext<Dispatch<Action> | null>(null);
@@ -30,36 +31,39 @@ export function useGameDispatch() {
   return context;
 }
 
-const initalContext: Game = {
-  gameId: "",
-  gameResult: {
-    winner: null,
-    loser: null,
-  },
-  gameState: {
-    gameOver: false,
-    turn: null,
-    canDraw: false,
-    canDiscard: false,
-    canMeld: false,
-    player1: {
-      name: "",
-      hand: [],
-      melds: [],
-      red_threes: [],
-      score: 0,
+function createInitialGame({ gameId, username }: { gameId: string; username: string }): Game {
+  return {
+    gameId,
+    gameResult: {
+      winner: null,
+      loser: null,
     },
-    player2: {
-      name: "",
-      num_of_cards_in_hand: 0,
-      melds: [],
-      red_threes: [],
-      score: 0,
+    gameState: {
+      gameOver: false,
+      turn: null,
+      canDraw: false,
+      canDiscard: false,
+      canMeld: false,
+      player1: {
+        name: username,
+        hand: [],
+        melds: [],
+        red_threes: [],
+        score: 0,
+      },
+      player2: {
+        name: "",
+        num_of_cards_in_hand: 0,
+        melds: [],
+        red_threes: [],
+        score: 0,
+      },
+      discardPileTopCard: null,
+      discardPileCount: 0,
+      stockCardCount: -1,
     },
-    discardPileTopCard: null,
-    stockCardCount: -1,
-  },
-};
+  };
+}
 
 export function GameContextProvider({
   children,
@@ -70,43 +74,63 @@ export function GameContextProvider({
 }) {
   const router = useRouter();
   const userContext = useUserContext();
+  const toast = useToast();
+  const username = userContext?.username ?? "";
+  const [state, dispatch] = useReducer(gameReducer, { gameId, username }, createInitialGame);
+
   useEffect(() => {
-    if (userContext === null) {
+    if (userContext?.ready && !userContext.username) {
+      router.replace("/login");
+    }
+  }, [userContext, router]);
+
+  useEffect(() => {
+    if (!username) {
       return;
     }
-    client.subscribe(`catnasta/game/${gameId}`);
-    client.subscribe(`catnasta/game/${gameId}/${userContext.username}`);
+    dispatch({
+      type: Type.SET,
+      payload: { gameState: createInitialGame({ gameId, username }).gameState },
+    });
+
+    const gameTopic = `catnasta/game/${gameId}`;
+    const privateTopic = `catnasta/game/${gameId}/${username}`;
+    client.subscribe(gameTopic);
+    client.subscribe(privateTopic);
     client.publish(
       "catnasta/game",
       JSON.stringify({
         id: gameId,
-        name: userContext.username,
+        name: username,
         type: "PLAYER_JOINED",
       }),
     );
 
-    const handleMessage = (topic: any, message: any) => {
-      const msg = JSON.parse(message.toString());
+    const handleMessage = (topic: string, message: string) => {
+      if (topic !== gameTopic && topic !== privateTopic) {
+        return;
+      }
+      const msg = JSON.parse(message);
       switch (msg.type) {
         case "PLAYER_JOINED":
           dispatch({
             type: Type.SET_SECOND_PLAYER,
             payload: {
-              name:
-                userContext.username === msg.player1
-                  ? msg.player2
-                  : msg.player1,
+              name: username === msg.player1 ? msg.player2 : msg.player1,
             },
           });
           break;
         case "GAME_START":
+        case "TURN":
           dispatch({
             type: Type.SET_CURRENT_PLAYER,
             payload: msg.current_player,
           });
           break;
         case "PLAYER_LEFT":
-          console.log("Player left");
+          if (msg.player !== username) {
+            toast(`${msg.player} left the table.`);
+          }
           break;
         case "EDIT_STOCK_CARD_COUNT":
           dispatch({
@@ -114,10 +138,10 @@ export function GameContextProvider({
             payload: msg.stock_card_count,
           });
           break;
-        case "TURN":
+        case "STOCK":
           dispatch({
-            type: Type.SET_CURRENT_PLAYER,
-            payload: msg.current_player,
+            type: Type.EDIT_STOCK_CARD_COUNT,
+            payload: msg.stock,
           });
           break;
         case "HAND":
@@ -127,17 +151,13 @@ export function GameContextProvider({
           });
           break;
         case "RED_THREES":
-          if (msg.player === userContext.username) {
-            dispatch({
-              type: Type.EDIT_PLAYER_RED_THREES,
-              payload: msg.red_threes,
-            });
-          } else {
-            dispatch({
-              type: Type.EDIT_SECOND_PLAYER_RED_THREES,
-              payload: msg.red_threes,
-            });
-          }
+          dispatch({
+            type:
+              msg.player === username
+                ? Type.EDIT_PLAYER_RED_THREES
+                : Type.EDIT_SECOND_PLAYER_RED_THREES,
+            payload: msg.red_threes,
+          });
           break;
         case "ENEMY_HAND":
           dispatch({
@@ -148,44 +168,40 @@ export function GameContextProvider({
         case "DISCARD_PILE_TOP_CARD":
           dispatch({
             type: Type.EDIT_DISCARD_PILE_TOP_CARD,
-            payload: msg.discard_pile_top_card,
+            payload: { card: msg.discard_pile_top_card, count: msg.discard_pile_count },
           });
           break;
         case "MELDED_CARDS":
-          if (msg.name === userContext.username) {
-            dispatch({
-              type: Type.EDIT_PLAYER_MELDS,
-              payload: msg.melds,
-            });
-          } else {
-            dispatch({
-              type: Type.EDIT_SECOND_PLAYER_MELDS,
-              payload: msg.melds,
-            });
-          }
+          dispatch({
+            type: msg.name === username ? Type.EDIT_PLAYER_MELDS : Type.EDIT_SECOND_PLAYER_MELDS,
+            payload: msg.melds,
+          });
           break;
         case "MELD_ERROR":
-          alert(msg.message + "\nCards have been returned to your hand");
+          toast(msg.message ?? msg.msg ?? "Those cards can't be melded.", {
+            tone: "error",
+            title: "Meld rejected",
+          });
           break;
-        case "UPDATE_SCORE":
-          if (msg.player1Score.name === userContext.username) {
-            dispatch({
-              type: Type.UPDATE_SCORE,
-              payload: {
-                player1Score: msg.player1Score.score,
-                player2Score: msg.player2Score.score,
-              },
-            });
-          } else {
-            dispatch({
-              type: Type.UPDATE_SCORE,
-              payload: {
-                player1Score: msg.player2Score.score,
-                player2Score: msg.player1Score.score,
-              },
-            });
-          }
+        case "PICKUP_ERROR":
+          // The pickup was optimistic; give the draw back.
+          dispatch({
+            type: Type.MODIFY,
+            payload: { canDraw: true, canDiscard: false, canMeld: false },
+          });
+          toast(msg.message, { tone: "error", title: "Can't take the pile" });
           break;
+        case "UPDATE_SCORE": {
+          const mine = msg.player1Score.name === username;
+          dispatch({
+            type: Type.UPDATE_SCORE,
+            payload: {
+              player1Score: mine ? msg.player1Score.score : msg.player2Score.score,
+              player2Score: mine ? msg.player2Score.score : msg.player1Score.score,
+            },
+          });
+          break;
+        }
         case "GAME_END":
           dispatch({
             type: Type.SET_GAME_RESULT,
@@ -198,34 +214,18 @@ export function GameContextProvider({
             type: Type.EDIT_GAME_OVER,
             payload: true,
           });
-
           break;
       }
     };
     client.on("message", handleMessage);
 
-    // client.on("disconnect", () => {
-    //   client.publish(
-    //     `catnasta-game-${gameId}`,
-    //     JSON.stringify({
-    //       type: "PLAYER_LEFT",
-    //     }),
-    //   );
-    // });
-  }, [gameId, userContext]);
+    return () => {
+      client.off("message", handleMessage);
+      client.unsubscribe(gameTopic);
+      client.unsubscribe(privateTopic);
+    };
+  }, [gameId, username, toast]);
 
-  initalContext.gameId = gameId;
-  initalContext.gameState.player1.name = userContext?.username || "";
-
-  const [state, dispatch] = useReducer(gameReducer, initalContext);
-  if (userContext === null) {
-    router.replace("/");
-    return null;
-  }
-  if (userContext.username === undefined) {
-    window.location.href = "/";
-    return null;
-  }
   return (
     <GameContext.Provider value={state}>
       <GameDispatchContext.Provider value={dispatch}>

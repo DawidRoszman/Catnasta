@@ -1,5 +1,7 @@
 export interface UserState {
   username: string;
+  /** False until we know whether the stored token belongs to a user. */
+  ready: boolean;
 }
 
 export enum UserActionType {
@@ -11,11 +13,11 @@ export interface UserAction {
   payload: string;
 }
 
-export const userReducer = (state: UserState, action: UserAction) => {
+export const userReducer = (state: UserState, action: UserAction): UserState => {
   const { type, payload } = action;
   switch (type) {
     case UserActionType.SET_USERNAME:
-      return { ...state, username: payload };
+      return { ...state, username: payload, ready: true };
     default:
       return state;
   }

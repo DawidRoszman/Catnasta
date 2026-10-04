@@ -1,11 +1,16 @@
 "use client";
-import React, { useEffect } from "react";
-import client from "../lib/socket";
+import React, { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { useCookies } from "next-client-cookies";
-import { api } from "../lib/api";
-import { useUserContext } from "./UserContext";
 import { v4 as uuidv4 } from "uuid";
+import { Check, MessageCircle, Pencil, SendHorizontal, Trash2, X } from "lucide-react";
+import client from "../lib/socket";
+import { api } from "../lib/api";
+import { cn } from "../lib/cn";
+import { useUserContext } from "./UserContext";
+import { useConfirm, useToast } from "./ui/Feedback";
+import { Input } from "./ui/Input";
+
 interface Message {
   id: string;
   username: string;
@@ -14,52 +19,50 @@ interface Message {
 
 const Chat = () => {
   const cookies = useCookies();
-  const userContext = useUserContext();
-  const [message, setMessage] = React.useState("");
-  const [messages, setMessages] = React.useState<Message[]>([]);
-  const [isChatOpen, setIsChatOpen] = React.useState(false);
-  const [hasUnreadChatMessage, setHasUnreadChatMessage] = React.useState(false);
-  const isChatOpenRef = React.useRef(false);
-  const usernameRef = React.useRef("");
+  const user = useUserContext();
+  const toast = useToast();
+  const confirm = useConfirm();
+  const [draft, setDraft] = useState("");
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [open, setOpen] = useState(false);
+  const [unread, setUnread] = useState(false);
+  const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);
+  const openRef = useRef(false);
+  const usernameRef = useRef("");
+  const listRef = useRef<HTMLDivElement>(null);
 
-  React.useEffect(() => {
-    isChatOpenRef.current = isChatOpen;
-  }, [isChatOpen]);
+  useEffect(() => {
+    openRef.current = open;
+  }, [open]);
 
-  React.useEffect(() => {
-    usernameRef.current = userContext?.username ?? "";
-  }, [userContext?.username]);
+  useEffect(() => {
+    usernameRef.current = user?.username ?? "";
+  }, [user?.username]);
 
   useEffect(() => {
     client.subscribe("catnasta/chat");
 
-    const getMessages = async () => {
-      const response = await axios.get(api + "/chat");
-      const data = response.data;
+    axios
+      .get(api + "/chat")
+      .then((response) =>
+        setMessages(
+          response.data.map((message: Message) => ({
+            id: message.id,
+            username: message.username,
+            message: message.message,
+          })),
+        ),
+      )
+      .catch(() => undefined);
 
-      const messages = data.map((message: any) => {
-        return {
-          username: message.username,
-          message: message.message,
-          id: message.id,
-        };
-      });
-      setMessages(messages);
-    };
-
-    getMessages();
-
-    const handleMessage = (_topic: unknown, msg: { toString: () => string }) => {
-      const { id, username, message: text } = JSON.parse(msg.toString());
-
-      setMessages((prev) => [
-        ...prev,
-        { id: id, username: username, message: text },
-      ]);
-
-      const isFromCurrentUser = username === usernameRef.current;
-      if (!isChatOpenRef.current && !isFromCurrentUser) {
-        setHasUnreadChatMessage(true);
+    const handleMessage = (topic: string, msg: string) => {
+      if (topic !== "catnasta/chat") {
+        return;
+      }
+      const { id, username, message } = JSON.parse(msg);
+      setMessages((prev) => [...prev, { id, username, message }]);
+      if (!openRef.current && username !== usernameRef.current) {
+        setUnread(true);
       }
     };
 
@@ -69,157 +72,195 @@ const Chat = () => {
     };
   }, []);
 
-  if (userContext === null) {
-    return <div>Loading...</div>;
-  }
+  useEffect(() => {
+    if (open) {
+      listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
+    }
+  }, [open, messages.length]);
 
-  const handleSendMsg = (e: any) => {
+  const username = user?.username ?? "";
+  const authHeaders = { headers: { Authorization: "Bearer " + cookies.get("token") } };
+
+  const handleSend = (e: React.SyntheticEvent) => {
     e.preventDefault();
+    if (!draft.trim() || !username) {
+      return;
+    }
     client.publish(
       "catnasta/chat",
-      JSON.stringify({
-        id: uuidv4(),
-        username: userContext.username,
-        message: message,
-      }),
+      JSON.stringify({ id: uuidv4(), username, message: draft.trim() }),
     );
-    setMessage("");
+    setDraft("");
   };
 
-  const handleDeleteMessage = async (id: string) => {
-    const response = await axios.delete(api + "/chat/delete/" + id, {
-      headers: {
-        Authorization: "Bearer " + cookies.get("token"),
-      },
+  const handleDelete = async (id: string) => {
+    const ok = await confirm({
+      title: "Delete message?",
+      message: "This removes it for everyone.",
+      confirmLabel: "Delete",
+      danger: true,
     });
-    const data = response.data;
-    if (data.msg !== "Message deleted") {
-      alert(data.msg);
+    if (!ok) {
+      return;
+    }
+    const response = await axios.delete(api + "/chat/delete/" + id, authHeaders);
+    if (response.data.msg !== "Message deleted") {
+      toast(response.data.msg, { tone: "error" });
       return;
     }
     setMessages((prev) => prev.filter((message) => message.id !== id));
   };
 
-  const handleEditMessage = async (id: string) => {
-    const newMessage = prompt(
-      "Edit your message",
-      messages.filter((message) => message.id === id)[0].message,
-    );
-    if (newMessage === null || newMessage === "" || newMessage === undefined) {
+  const handleSaveEdit = async (e: React.SyntheticEvent) => {
+    e.preventDefault();
+    if (!editing || !editing.text.trim()) {
       return;
     }
     const response = await axios.put(
-      api + "/chat/update/" + id,
-      {
-        message: newMessage,
-      },
-      {
-        headers: {
-          Authorization: "Bearer " + cookies.get("token"),
-        },
-      },
+      api + "/chat/update/" + editing.id,
+      { message: editing.text.trim() },
+      authHeaders,
     );
-    const data = response.data;
-    if (data.msg !== "Message updated") {
-      alert(data.msg);
+    if (response.data.msg !== "Message updated") {
+      toast(response.data.msg, { tone: "error" });
       return;
     }
-    const prevMessages = [...messages];
-    const newMessages = prevMessages.map((message) => {
-      if (message.id === id) {
-        message.message = newMessage;
-      }
-      return message;
-    });
-    setMessages(newMessages);
+    setMessages((prev) =>
+      prev.map((message) =>
+        message.id === editing.id ? { ...message, message: editing.text.trim() } : message,
+      ),
+    );
+    setEditing(null);
   };
 
   return (
-    <>
-      <div
-        tabIndex={0}
-        className="collapse collapse-arrow w-fit bg-base-200 fixed bottom-0 right-0"
-      >
-        <input
-          type="checkbox"
-          checked={isChatOpen}
-          onChange={(e) => {
-            const open = e.target.checked;
-            setIsChatOpen(open);
-            if (open) {
-              setHasUnreadChatMessage(false);
-            }
-          }}
-        />
-        <div className="collapse-title collapse-arrow text-xl font-medium relative pr-10">
-          <span className="inline-flex items-center gap-2">
-            Chat here
-            {hasUnreadChatMessage ? (
-              <span
-                className="h-2.5 w-2.5 shrink-0 rounded-full bg-error"
-                title="New message"
-                aria-label="New chat message"
-              />
-            ) : null}
-          </span>
-        </div>
-        <div className="collapse-content grid place-items-center">
-          <div className="border-2 border-primary rounded-xl p-5">
-            <div className="overflow-y-scroll flex flex-col-reverse h-96">
-              {messages.toReversed().map((message, id) => {
-                return (
-                  <div key={id}>
-                    <div
-                      className={`chat ${
-                        message.username === userContext.username
-                          ? "chat-end"
-                          : "chat-start"
-                      }`}
-                    >
-                      <div className="chat-header">{message.username}</div>
-                      <div className="chat-bubble">{message.message}</div>
-                      <div className="chat-footer">
-                        {message.username === userContext.username && (
-                          <>
-                            <button
-                              onClick={() => handleDeleteMessage(message.id)}
-                            >
-                              delete
-                            </button>{" "}
-                            <button
-                              onClick={() => handleEditMessage(message.id)}
-                            >
-                              edit
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+    <div className="fixed bottom-4 right-4 z-30 flex flex-col items-end gap-3">
+      {open && (
+        <section
+          className="flex h-[min(520px,70dvh)] w-[min(360px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl bg-surface/95 ring-1 ring-line-strong shadow-card backdrop-blur-xl animate-pop-in"
+          aria-label="Lobby chat"
+        >
+          <header className="flex items-center justify-between border-b border-line px-4 py-3">
+            <div>
+              <h2 className="font-display text-lg font-semibold">Lobby chat</h2>
+              <p className="text-xs text-muted">{messages.length} messages</p>
             </div>
-            <form>
-              <input
-                type="text"
-                className="input input-bordered mx-2"
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                placeholder="Enter your message..."
-              />
-              <button
-                type="submit"
-                className="btn btn-secondary"
-                disabled={message === "" || userContext.username === ""}
-                onClick={(e) => handleSendMsg(e)}
-              >
-                {userContext.username === "" ? "Login to chat" : "Send"}
-              </button>
-            </form>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="rounded-lg p-1.5 text-muted hover:bg-white/5 hover:text-cream"
+              aria-label="Close chat"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </header>
+          <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4" id="chat-messages">
+            {messages.length === 0 && (
+              <p className="pt-10 text-center text-sm text-muted">No messages yet. Say hello!</p>
+            )}
+            {messages.map((message) => {
+              const mine = message.username === username;
+              const isEditing = editing?.id === message.id;
+              return (
+                <div key={message.id} className={cn("group flex flex-col", mine ? "items-end" : "items-start")}>
+                  <span className="mb-1 px-1 text-[11px] font-semibold text-muted">{message.username}</span>
+                  {isEditing ? (
+                    <form onSubmit={handleSaveEdit} className="flex w-full gap-1.5">
+                      <Input
+                        value={editing.text}
+                        onChange={(e) => setEditing({ id: message.id, text: e.target.value })}
+                        onKeyDown={(e) => e.key === "Escape" && setEditing(null)}
+                        className="h-9 text-sm"
+                        aria-label="Edit message"
+                        autoFocus
+                      />
+                      <button type="submit" className="rounded-lg px-2 text-mint hover:bg-white/5" aria-label="Save">
+                        <Check className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditing(null)}
+                        className="rounded-lg px-2 text-muted hover:bg-white/5"
+                        aria-label="Cancel edit"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </form>
+                  ) : (
+                    <div className={cn("flex max-w-[85%] items-center gap-1", mine && "flex-row-reverse")}>
+                      <p
+                        className={cn(
+                          "rounded-2xl px-3.5 py-2 text-sm break-words",
+                          mine
+                            ? "rounded-br-md bg-brass text-felt-950"
+                            : "rounded-bl-md bg-surface-raised text-cream ring-1 ring-line",
+                        )}
+                      >
+                        {message.message}
+                      </p>
+                      {mine && (
+                        <div className="flex opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                          <button
+                            type="button"
+                            onClick={() => setEditing({ id: message.id, text: message.message })}
+                            className="rounded-md p-1 text-muted hover:text-cream"
+                            aria-label="Edit message"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(message.id)}
+                            className="rounded-md p-1 text-muted hover:text-coral"
+                            aria-label="Delete message"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
-        </div>
-      </div>
-    </>
+          <form onSubmit={handleSend} className="flex gap-2 border-t border-line p-3">
+            <Input
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder={username ? "Write a message…" : "Log in to chat"}
+              disabled={!username}
+              aria-label="Message"
+              className="h-10"
+            />
+            <button
+              type="submit"
+              disabled={!draft.trim() || !username}
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brass text-felt-950 transition-colors hover:bg-brass-strong disabled:opacity-40"
+              aria-label="Send message"
+            >
+              <SendHorizontal className="h-4 w-4" />
+            </button>
+          </form>
+        </section>
+      )}
+      <button
+        type="button"
+        onClick={() => {
+          setOpen((value) => !value);
+          setUnread(false);
+        }}
+        className="relative grid h-14 w-14 place-items-center rounded-2xl bg-surface-raised text-cream ring-1 ring-line-strong shadow-card transition-transform hover:-translate-y-0.5 hover:ring-brass/60"
+        aria-label={open ? "Close chat" : "Open chat"}
+        aria-expanded={open}
+        id="chat-toggle"
+      >
+        <MessageCircle className="h-6 w-6" />
+        {unread && (
+          <span className="absolute right-2.5 top-2.5 h-3 w-3 rounded-full bg-coral ring-2 ring-surface-raised" aria-label="New messages" />
+        )}
+      </button>
+    </div>
   );
 };
 

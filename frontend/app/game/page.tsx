@@ -1,32 +1,38 @@
+import type { Metadata } from "next";
 import axios from "axios";
 import { redirect } from "next/navigation";
-import React from "react";
-import { api } from "../lib/api";
 import { getCookies } from "next-client-cookies/server";
+import { api } from "../lib/api";
 import GameList from "./components/GameList";
+import Chat from "../components/Chat";
+
+export const metadata: Metadata = { title: "Lobby" };
 
 export interface Game {
   id: string;
   players_in_game: number;
 }
 
-const Game = async () => {
+const Lobby = async () => {
   const cookies = await getCookies();
-  if (cookies.get("token") === undefined) {
+  const token = cookies.get("token");
+  if (token === undefined) {
     redirect("/login");
   }
   const games: Game[] = await axios
     .get(api + "/live_games", {
       headers: {
-        Authorization: `Bearer ${cookies.get("token")}`,
+        Authorization: `Bearer ${token}`,
       },
     })
-    .then((res) => res.data);
+    .then((res) => (Array.isArray(res.data) ? res.data : []))
+    .catch(() => []);
   return (
-    <div>
+    <main className="flex-1">
       <GameList games={games} />
-    </div>
+      <Chat />
+    </main>
   );
 };
 
-export default Game;
+export default Lobby;
