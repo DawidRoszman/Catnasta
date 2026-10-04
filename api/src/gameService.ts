@@ -83,7 +83,8 @@ export function startRoundDispatch(
     `catnasta/game/${msg.id}`,
     JSON.stringify({
       type: "DISCARD_PILE_TOP_CARD",
-      discard_pile_top_card: gameState.discardPile[0],
+      discard_pile_top_card: gameState.discardPile.at(-1) ?? null,
+      discard_pile_count: gameState.discardPile.length,
     }),
   );
   client.publish(
@@ -153,7 +154,8 @@ export const drawCardDispatch = (
     `catnasta/game/${msg.id}`,
     JSON.stringify({
       type: "DISCARD_PILE_TOP_CARD",
-      discard_pile_top_card: gameState.discardPile[0],
+      discard_pile_top_card: gameState.discardPile.at(-1) ?? null,
+      discard_pile_count: gameState.discardPile.length,
     }),
   );
   client.publish(
@@ -235,7 +237,8 @@ export const discardCardDispatch = async (
     `catnasta/game/${msg.id}`,
     JSON.stringify({
       type: "DISCARD_PILE_TOP_CARD",
-      discard_pile_top_card: gameState.discardPile.reverse()[0],
+      discard_pile_top_card: gameState.discardPile.at(-1) ?? null,
+      discard_pile_count: gameState.discardPile.length,
     }),
   );
   client.publish(
@@ -542,7 +545,8 @@ export const pickUpPileDispatch = (
     `catnasta/game/${msg.id}`,
     JSON.stringify({
       type: "DISCARD_PILE_TOP_CARD",
-      discard_pile_top_card: gameState.discardPile[0],
+      discard_pile_top_card: gameState.discardPile.at(-1) ?? null,
+      discard_pile_count: gameState.discardPile.length,
     }),
   );
   client.publish(
