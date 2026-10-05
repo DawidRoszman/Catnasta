@@ -10,6 +10,9 @@ export const CARD_GAP = 0.0035;
 export const TABLE_WIDTH = 11.2;
 export const TABLE_DEPTH = 7.4;
 
+/** The floor the cat bed stands on, just below the play surface at y = 0. */
+export const FLOOR_Y = -0.28;
+
 export const STOCK_POSITION = new THREE.Vector3(3.15, 0, -0.15);
 export const DISCARD_POSITION = new THREE.Vector3(4.35, 0, -0.15);
 /** The discard pile sits in a litter box; its cards rest on the litter this high above the felt. */

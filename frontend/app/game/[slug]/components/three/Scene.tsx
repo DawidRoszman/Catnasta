@@ -114,10 +114,11 @@ export default function Scene(props: SceneProps) {
         color="#fff1d6"
         castShadow
         shadow-mapSize={[2048, 2048]}
-        shadow-camera-left={-7}
-        shadow-camera-right={7}
-        shadow-camera-top={6}
-        shadow-camera-bottom={-6}
+        // Wide enough for the bed, its bolster and the toys behind it.
+        shadow-camera-left={-9}
+        shadow-camera-right={9}
+        shadow-camera-top={7.5}
+        shadow-camera-bottom={-7.5}
         shadow-bias={-0.0004}
         shadow-normalBias={0.02}
       />
