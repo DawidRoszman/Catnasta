@@ -26,6 +26,13 @@ const RED_THREE_X = -4.85;
 const HAND_ORIGIN = new THREE.Vector3(0, 1.7, 3.95);
 const HAND_TILT = new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.92, 0, 0));
 const OPPONENT_HAND_Z = -3.0;
+/** How much the fanned hand dips and tilts per unit of distance from its middle. */
+const HAND_ARC = 0.027;
+const HAND_ROLL = 0.056;
+/** The opponent's fan bows towards the table centre and turns its ends outwards. */
+const OPPONENT_ARC = 0.035;
+const OPPONENT_FAN = 0.1;
+const OPPONENT_CARD_GAP = 0.005;
 
 const FLAT_FACE_UP = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0));
 const FLAT_FACE_DOWN = new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.PI / 2, 0, 0));
@@ -113,20 +120,16 @@ export function computeLayout(input: LayoutInput): CardPlacement[] {
   const placements: CardPlacement[] = [];
 
   // Player's hand: a fan held towards the camera.
+  // The curve and tilt depend on how far a card sits from the middle, not on
+  // its index, so a big hand keeps the same shape instead of bending further.
   const n = input.hand.length;
   const spacing = Math.min(0.44, 7 / Math.max(n, 1));
   input.hand.forEach((card, i) => {
     const t = i - (n - 1) / 2;
+    const x = t * spacing;
     const selected = input.selected.has(card.id);
-    const local = new THREE.Vector3(
-      t * spacing,
-      -t * t * 0.006 * (spacing / 0.5) + (selected ? 0.3 : 0),
-      i * 0.006,
-    );
-    const roll = new THREE.Quaternion().setFromAxisAngle(
-      new THREE.Vector3(0, 0, 1),
-      -t * 0.028 * (spacing / 0.5),
-    );
+    const local = new THREE.Vector3(x, -x * x * HAND_ARC + (selected ? 0.3 : 0), i * 0.006);
+    const roll = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -x * HAND_ROLL);
     placements.push({
       key: card.id,
       card,
@@ -142,16 +145,17 @@ export function computeLayout(input: LayoutInput): CardPlacement[] {
   const m = input.opponentHandCount;
   const opponentSpacing = Math.min(0.34, 6 / Math.max(m, 1));
   for (let i = 0; i < m; i++) {
-    const t = i - (m - 1) / 2;
+    const x = (i - (m - 1) / 2) * opponentSpacing;
     placements.push({
       key: `opponent-${i}`,
       card: null,
       position: new THREE.Vector3(
-        t * opponentSpacing,
-        0.004 + i * CARD_GAP,
-        OPPONENT_HAND_Z + t * t * 0.006,
+        x,
+        // A little more than a card's thickness apart, so overlapping cards never flicker.
+        0.004 + i * OPPONENT_CARD_GAP,
+        OPPONENT_HAND_Z + x * x * OPPONENT_ARC,
       ),
-      quaternion: flatQuaternion(false, t * 0.035),
+      quaternion: flatQuaternion(false, x * OPPONENT_FAN),
     });
   }
 

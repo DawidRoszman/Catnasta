@@ -4,17 +4,16 @@ import * as THREE from "three";
 import { ThreeEvent, useFrame } from "@react-three/fiber";
 import { easing } from "maath";
 import { PlayingCard } from "@/app/lib/cards/draw";
-import { getCardGeometry, getCardTexture } from "./textures";
-import { CARD_HEIGHT, CARD_WIDTH, Glow } from "./tableLayout";
+import { getCardGeometry, getCardTexture, getGoldTexture, getOutlineGeometry } from "./textures";
+import { Glow } from "./tableLayout";
 
-const GLOW_COLORS: Record<Glow, string> = {
-  selected: "#f0bd62",
+/** Outline colours; gold ones use the gilt texture instead of a flat colour. */
+const GLOW_COLORS: Record<Glow, string | "gold"> = {
+  selected: "gold",
   staged: "#7cc4e8",
-  catnasta: "#ffd36b",
+  catnasta: "gold",
   target: "#6fd3b0",
 };
-
-const glowGeometry = new THREE.PlaneGeometry(CARD_WIDTH + 0.09, CARD_HEIGHT + 0.09);
 
 type Card3DProps = {
   card: PlayingCard | null;
@@ -37,6 +36,7 @@ function Card3D({ card, position, quaternion, spawn, glow, hoverLift, onClick }:
   const front = card ? getCardTexture(card) : null;
   const back = getCardTexture(null);
   const interactive = onClick !== undefined;
+  const outlineColor = GLOW_COLORS[glow ?? "selected"];
 
   useFrame((state, delta) => {
     if (!group.current || !inner.current) {
@@ -52,8 +52,8 @@ function Card3D({ card, position, quaternion, spawn, glow, hoverLift, onClick }:
       delta,
     );
     if (glowMaterial.current) {
-      const pulse = glow === "target" ? 0.35 + Math.sin(state.clock.elapsedTime * 4) * 0.2 : 0.85;
-      easing.damp(glowMaterial.current, "opacity", glow ? pulse : lifted ? 0.35 : 0, 0.1, delta);
+      const pulse = glow === "target" ? 0.55 + Math.sin(state.clock.elapsedTime * 4) * 0.3 : 1;
+      easing.damp(glowMaterial.current, "opacity", glow ? pulse : lifted ? 0.75 : 0, 0.1, delta);
     }
   });
 
@@ -88,14 +88,19 @@ function Card3D({ card, position, quaternion, spawn, glow, hoverLift, onClick }:
         onPointerOut={handlePointerOut}
         onClick={handleClick}
       >
-        <mesh geometry={glowGeometry} position={[0, 0, -0.002]} renderOrder={-1}>
+        {/* Focus outline: a thin gold rim (hover and selection) or a coloured one for other states. */}
+        <mesh geometry={getOutlineGeometry()} position={[0, 0, -0.002]} renderOrder={-1}>
           <meshBasicMaterial
+            // Swapping between the gold texture and a flat colour needs a fresh material.
+            key={outlineColor}
             ref={glowMaterial}
-            color={GLOW_COLORS[glow ?? "selected"]}
+            color={outlineColor === "gold" ? "#ffffff" : outlineColor}
+            map={outlineColor === "gold" ? getGoldTexture() : null}
             transparent
             opacity={0}
             depthWrite={false}
             toneMapped={false}
+            side={THREE.DoubleSide}
           />
         </mesh>
         {front && (
