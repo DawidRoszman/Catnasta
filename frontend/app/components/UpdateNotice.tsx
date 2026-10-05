@@ -5,10 +5,14 @@ import { RefreshCw, X } from "lucide-react";
 import { Button } from "./ui/Button";
 
 const CURRENT_BUILD = process.env.NEXT_PUBLIC_BUILD_ID;
-/** How often an open tab asks whether a new version is live; it also asks when refocused. */
-const CHECK_INTERVAL_MS = Number(process.env.NEXT_PUBLIC_UPDATE_CHECK_SECONDS ?? 300) * 1000;
+/** Longest wait between attempts to reopen the version stream after it fails. */
+const MAX_RETRY_MS = 60_000;
 
-/** Offers a reload once a newer build of the site has been deployed. */
+/**
+ * Offers a reload once a newer build of the site has been deployed. The server
+ * pushes its build id over a long-lived stream; a deploy drops that stream and
+ * the reconnect lands on the new build.
+ */
 export default function UpdateNotice() {
   const pathname = usePathname();
   const [latest, setLatest] = useState<string | null>(null);
@@ -19,28 +23,57 @@ export default function UpdateNotice() {
       return;
     }
     let active = true;
+    let source: EventSource | null = null;
+    let retry: ReturnType<typeof setTimeout> | undefined;
+    let retryMs = 3000;
+
+    const seen = (buildId: unknown) => {
+      if (active && typeof buildId === "string" && buildId !== CURRENT_BUILD) {
+        setLatest(buildId);
+      }
+    };
+
+    const connect = () => {
+      source = new EventSource("/version/stream");
+      source.addEventListener("version", (event) => {
+        retryMs = 3000;
+        try {
+          seen(JSON.parse((event as MessageEvent<string>).data).buildId);
+        } catch {
+          // Ignore a malformed event.
+        }
+      });
+      source.onerror = () => {
+        // The browser retries dropped connections itself, but gives up for good
+        // when a retry gets an error response (e.g. a proxy's 502 mid-deploy).
+        if (source?.readyState === EventSource.CLOSED && active) {
+          source.close();
+          retry = setTimeout(connect, retryMs);
+          retryMs = Math.min(retryMs * 2, MAX_RETRY_MS);
+        }
+      };
+    };
+
+    // Fallback for networks that block or buffer the stream.
     const check = async () => {
       if (document.visibilityState !== "visible") {
         return;
       }
       try {
         const response = await fetch("/version", { cache: "no-store" });
-        const { buildId } = await response.json();
-        if (active && typeof buildId === "string" && buildId !== CURRENT_BUILD) {
-          setLatest(buildId);
-        }
+        seen((await response.json()).buildId);
       } catch {
-        // Offline or mid-deploy; try again on the next tick.
+        // Offline or mid-deploy; the stream will catch up.
       }
     };
-    const interval = setInterval(check, CHECK_INTERVAL_MS);
+
+    connect();
     document.addEventListener("visibilitychange", check);
-    window.addEventListener("focus", check);
     return () => {
       active = false;
-      clearInterval(interval);
+      clearTimeout(retry);
+      source?.close();
       document.removeEventListener("visibilitychange", check);
-      window.removeEventListener("focus", check);
     };
   }, []);
 
