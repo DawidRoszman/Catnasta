@@ -14,6 +14,9 @@ function socketUrl() {
 
 const topics = new Set<string>();
 const handlers = new Set<MessageHandler>();
+const reconnectHandlers = new Set<() => void>();
+/** Whether a connection has opened before, so the next open is a reconnect. */
+let connectedBefore = false;
 const pending: string[] = [];
 let socket: WebSocket | null = null;
 
@@ -27,6 +30,10 @@ function connect() {
     while (pending.length > 0) {
       socket!.send(pending.shift()!);
     }
+    if (connectedBefore) {
+      reconnectHandlers.forEach((handler) => handler());
+    }
+    connectedBefore = true;
   };
 
   socket.onmessage = (event) => {
@@ -81,6 +88,13 @@ const client = {
   },
   off(_event: "message", handler: MessageHandler) {
     handlers.delete(handler);
+  },
+  /** Runs `handler` each time the connection comes back after dropping (e.g. a deploy). */
+  onReconnect(handler: () => void) {
+    reconnectHandlers.add(handler);
+    return () => {
+      reconnectHandlers.delete(handler);
+    };
   },
 };
 

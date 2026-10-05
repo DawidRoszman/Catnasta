@@ -141,6 +141,8 @@ import {
   meldCardDispatch,
   parseTableSettings,
   pickUpPileDispatch,
+  resumeGame,
+  setGameChangeListener,
   startRoundDispatch,
 } from "../gameService";
 import { Broker } from "../socket";
@@ -443,5 +445,74 @@ describe("turn timer", () => {
     expect(ofType("GAME_START")[0].msg.turn_deadline).toBeNull();
     jest.advanceTimersByTime(10 * 60_000);
     expect(ofType("TURN_TIMEOUT")).toHaveLength(0);
+  });
+});
+
+describe("resuming after a restart", () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  test("a timed turn carries on with the time it had left when the server stopped", async () => {
+    const { broker, gameState, ofType } = setup({
+      settings: { ...DEFAULT_SETTINGS, turnSeconds: 60 },
+      player1: player("ann", { hand: cards(5, Rank.KING) }),
+    });
+    const stoppedAt = Date.now();
+    gameState.turnDeadline = stoppedAt + 25_000;
+    // The server was down for two minutes.
+    jest.advanceTimersByTime(120_000);
+    resumeGame(broker, games[0], {} as any, stoppedAt);
+
+    expect(gameState.turnDeadline).toBe(Date.now() + 25_000);
+    jest.advanceTimersByTime(24_999);
+    expect(ofType("TURN_TIMEOUT")).toHaveLength(0);
+    jest.advanceTimersByTime(1);
+    await Promise.resolve();
+    expect(ofType("TURN_TIMEOUT")[0].msg).toMatchObject({ player: "ann" });
+    expect(gameState.turn).toBe("bob");
+  });
+
+  test("a turn that was nearly out still gets a few seconds", () => {
+    const { broker, gameState } = setup({ settings: { ...DEFAULT_SETTINGS, turnSeconds: 30 } });
+    const stoppedAt = Date.now();
+    gameState.turnDeadline = stoppedAt + 1_000;
+    resumeGame(broker, games[0], {} as any, stoppedAt);
+    expect(gameState.turnDeadline).toBe(Date.now() + 10_000);
+  });
+
+  test("a round break finishes and deals the next round", () => {
+    const { broker, gameState, ofType } = setup({ turn: "" });
+    const stoppedAt = Date.now();
+    gameState.roundBreak = { round: 1, results: [], nextRoundAt: stoppedAt + 4_000 };
+    jest.advanceTimersByTime(60_000);
+    resumeGame(broker, games[0], {} as any, stoppedAt);
+    expect(gameState.roundBreak.nextRoundAt).toBe(Date.now() + 4_000);
+
+    jest.advanceTimersByTime(4_000);
+    expect(gameState.round).toBe(2);
+    expect(gameState.turn).toBe("bob");
+    expect(ofType("GAME_START").at(-1)!.msg).toMatchObject({ round: 2 });
+  });
+
+  test("untimed turns and unstarted tables need no clock", () => {
+    const { broker, gameState, ofType } = setup();
+    resumeGame(broker, games[0], {} as any, Date.now());
+    expect(gameState.turnDeadline).toBeUndefined();
+    jest.advanceTimersByTime(10 * 60_000);
+    expect(ofType("TURN_TIMEOUT")).toHaveLength(0);
+  });
+
+  test("every change to a live game is reported so it can be saved", async () => {
+    const changed = jest.fn();
+    setGameChangeListener(changed);
+    const last = card(Rank.FOUR);
+    const { broker, gameState } = setup({
+      hasDrawn: true,
+      player1: player("ann", { melds: [cards(7, Rank.KING)], hand: [last] }),
+      player2: player("bob", { hand: cards(3, Rank.QUEEN) }),
+    });
+    await discardCardDispatch(broker, gameState, msg("ann", { cardId: last.id }), {} as any, games);
+    expect(changed).toHaveBeenCalledWith("T1");
+    setGameChangeListener(() => {});
   });
 });

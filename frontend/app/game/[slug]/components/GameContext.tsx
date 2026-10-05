@@ -5,6 +5,7 @@ import {
   useContext,
   useEffect,
   useReducer,
+  useRef,
 } from "react";
 import { Action, Game, Type, gameReducer } from "./gameReducer";
 import client from "@/app/lib/socket";
@@ -88,6 +89,11 @@ export function GameContextProvider({
   const toast = useToast();
   const username = userContext?.username ?? "";
   const [state, dispatch] = useReducer(gameReducer, { gameId, username }, createInitialGame);
+  // Once the game is over there's nothing to catch up on, and the table is gone.
+  const finished = useRef(false);
+  useEffect(() => {
+    finished.current = state.gameState.gameOver || state.closed;
+  }, [state.gameState.gameOver, state.closed]);
 
   useEffect(() => {
     if (userContext?.ready && !userContext.username) {
@@ -117,24 +123,37 @@ export function GameContextProvider({
     client.subscribe(gameTopic);
     client.subscribe(privateTopic);
     // Opening an invite link lands here without going through the lobby, so
-    // claim the seat first. The server lets already-seated players straight back in.
-    joinGame(gameId, username).then((result) => {
-      if (cancelled) {
-        return;
+    // claim the seat first. The server lets already-seated players straight back in,
+    // and answers a join with the whole table, which is also how we catch up after
+    // the connection drops.
+    const sitDown = (reconnect: boolean) =>
+      joinGame(gameId, username).then((result) => {
+        if (cancelled) {
+          return;
+        }
+        if ("error" in result) {
+          if (reconnect) {
+            toast("The game ended while you were disconnected.", { title: "Table closed" });
+          } else {
+            toast(result.error, { tone: "error", title: "Can't join this table" });
+          }
+          router.replace("/game");
+          return;
+        }
+        client.publish(
+          "catnasta/game",
+          JSON.stringify({
+            id: gameId,
+            name: username,
+            type: "PLAYER_JOINED",
+          }),
+        );
+      });
+    sitDown(false);
+    const stopResync = client.onReconnect(() => {
+      if (!finished.current) {
+        sitDown(true);
       }
-      if ("error" in result) {
-        toast(result.error, { tone: "error", title: "Can't join this table" });
-        router.replace("/game");
-        return;
-      }
-      client.publish(
-        "catnasta/game",
-        JSON.stringify({
-          id: gameId,
-          name: username,
-          type: "PLAYER_JOINED",
-        }),
-      );
     });
 
     const handleMessage = (topic: string, message: string) => {
@@ -301,6 +320,7 @@ export function GameContextProvider({
 
     return () => {
       cancelled = true;
+      stopResync();
       client.off("message", handleMessage);
       client.unsubscribe(gameTopic);
       client.unsubscribe(privateTopic);

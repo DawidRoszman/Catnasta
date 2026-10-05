@@ -1,7 +1,7 @@
 import { MongoClient } from "mongodb";
 import { Broker } from "./socket";
 import { Game } from "./types/types";
-import { games, publishGameList, removeGame } from "./gameService";
+import { gameChanged, games, publishGameList, removeGame } from "./gameService";
 
 /** How long a player may be away before they forfeit (or the table closes). */
 export const GRACE_MS = Number(process.env.FORFEIT_GRACE_SECONDS ?? 90) * 1000;
@@ -101,6 +101,7 @@ export function createLifecycle(broker: Broker, mongoClient: MongoClient) {
     const { gameState } = game;
     if (leaver === gameState.player2.name) {
       gameState.player2.name = "";
+      gameChanged(game.gameId);
       seats.get(game.gameId)?.delete(leaver);
       broker.publish(
         `catnasta/game/${game.gameId}`,

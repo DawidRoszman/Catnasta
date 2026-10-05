@@ -17,6 +17,18 @@ import { Broker } from "./socket";
 
 export const games: Game[] = [];
 
+let onGameChanged: (gameId: string) => void = () => {};
+
+/** Registers who to tell whenever a live game changes, e.g. to save it. */
+export function setGameChangeListener(listener: (gameId: string) => void) {
+  onGameChanged = listener;
+}
+
+/** Marks a live game as changed so it gets saved. */
+export function gameChanged(gameId: string) {
+  onGameChanged(gameId);
+}
+
 export const DEFAULT_SETTINGS: TableSettings = {
   winningScore: Number(process.env.WINNING_SCORE ?? 5000),
   roundBreakSeconds: Number(process.env.ROUND_BREAK_SECONDS ?? 10),
@@ -81,6 +93,7 @@ export function removeGame(client: Broker, gameId: string) {
   if (index !== -1) {
     games.splice(index, 1);
   }
+  gameChanged(gameId);
   publishGameList(client);
 }
 
@@ -94,22 +107,26 @@ function stopTurnClock(gameId: string) {
 /**
  * Starts the clock on the turn that just began, if the table times turns.
  * When it runs out the player draws (unless they already did) and their
- * lowest card is discarded for them, which passes the turn on.
+ * lowest card is discarded for them, which passes the turn on. `ms` resumes
+ * a turn that already had part of its time used.
  */
 function startTurnClock(
   client: Broker,
   gameId: string,
   gameState: GameState,
   mongoClient: MongoClient,
+  ms?: number,
 ) {
   stopTurnClock(gameId);
   gameState.turnDeadline = undefined;
+  gameChanged(gameId);
   const seconds = gameState.settings.turnSeconds;
   const player = gameState.turn;
   if (!seconds || !player) {
     return;
   }
-  gameState.turnDeadline = Date.now() + seconds * 1000;
+  const duration = ms ?? seconds * 1000;
+  gameState.turnDeadline = Date.now() + duration;
   turnClocks.set(
     gameId,
     setTimeout(() => {
@@ -134,7 +151,7 @@ function startTurnClock(
       discardCardDispatch(client, gameState, { ...msg, cardId: card.id }, mongoClient, games).catch(
         (err) => console.error("Could not play a timed-out turn", err),
       );
-    }, seconds * 1000),
+    }, duration),
   );
 }
 
@@ -318,6 +335,18 @@ async function endRound(
     nextRoundAt: Date.now() + breakMs,
   };
   publishRoundEnd(client, gameId, gameState.roundBreak);
+  gameChanged(gameId);
+  scheduleNextRound(client, gameId, gameState, mongoClient, breakMs);
+}
+
+/** Deals the next round once the break after the last one is over. */
+function scheduleNextRound(
+  client: Broker,
+  gameId: string,
+  gameState: GameState,
+  mongoClient: MongoClient,
+  delayMs: number,
+) {
   setTimeout(() => {
     const game = games.find((game) => game.gameId === gameId);
     if (game?.gameState !== gameState || gameState.gameOver) {
@@ -333,7 +362,37 @@ async function endRound(
     gameState.turn = gameState.roundStarter;
     startTurnClock(client, gameId, gameState, mongoClient);
     publishTable(client, gameId, gameState);
-  }, breakMs);
+  }, delayMs);
+}
+
+/** A resumed turn always gets at least this long, so nobody is played for the moment the server is back. */
+const MIN_RESUMED_TURN_MS = 10_000;
+
+/**
+ * Restarts the clocks of a game restored after a restart. Time stood still
+ * while the server was down: a turn or round break carries on with whatever
+ * it had left at `pausedAt`.
+ */
+export function resumeGame(
+  client: Broker,
+  game: Game,
+  mongoClient: MongoClient,
+  pausedAt: number,
+) {
+  const { gameId, gameState } = game;
+  if (!gameState.gameStarted || gameState.gameOver) {
+    return;
+  }
+  if (gameState.roundBreak) {
+    const remaining = Math.max(gameState.roundBreak.nextRoundAt - pausedAt, 0);
+    gameState.roundBreak.nextRoundAt = Date.now() + remaining;
+    scheduleNextRound(client, gameId, gameState, mongoClient, remaining);
+    return;
+  }
+  if (gameState.turnDeadline != null) {
+    const remaining = Math.max(gameState.turnDeadline - pausedAt, MIN_RESUMED_TURN_MS);
+    startTurnClock(client, gameId, gameState, mongoClient, remaining);
+  }
 }
 
 export const drawCardDispatch = (

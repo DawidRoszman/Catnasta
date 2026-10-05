@@ -23,11 +23,12 @@ name: Timed turns play themselves when time runs out
     id: "turn-timer"
 
 # The API opponent never moves, so if they start, their clock plays for them.
-# Long single waits give up early on web, so wait in shorter rounds.
+# Long single waits give up early on web, and the shorter rounds can too, so
+# allow plenty of them; the loop stops as soon as the text shows.
 - repeat:
     while:
       notVisible: "Your turn — draw from the stock or take the discard pile"
-    times: 5
+    times: 10
     commands:
       - extendedWaitUntil:
           visible: "Your turn — draw from the stock or take the discard pile"
@@ -42,7 +43,7 @@ name: Timed turns play themselves when time runs out
 - repeat:
     while:
       notVisible: "Time's up — a card was drawn for you and your lowest card discarded."
-    times: 5
+    times: 10
     commands:
       - extendedWaitUntil:
           visible: "Time's up — a card was drawn for you and your lowest card discarded."

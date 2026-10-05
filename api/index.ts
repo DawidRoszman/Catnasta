@@ -1,19 +1,24 @@
 import express, { Express, Request, Response } from "express";
 import cors from "cors";
 import fs from "fs";
+import http from "http";
 import https from "https";
 import {
   discardCardDispatch,
   dispatchAddToMeld,
   drawCardDispatch,
+  gameChanged,
   gameListPayload,
   games,
   parseTableSettings,
   meldCardDispatch,
   pickUpPileDispatch,
   publishGameList,
+  resumeGame,
+  setGameChangeListener,
   startRoundDispatch,
 } from "./src/gameService";
+import { SavedGameCollection, createGameStore } from "./src/persistence";
 import { MongoClient, ObjectId, ServerApiVersion } from "mongodb";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
@@ -43,19 +48,17 @@ const mongoClient = new MongoClient(uri, {
   },
 });
 
-async function run() {
-  try {
+// Games in progress, saved as they change so a restart can pick them up again.
+const gameStore = createGameStore(
+  async () => {
     await mongoClient.connect();
-    await mongoClient.db("admin").command({ ping: 1 });
-    console.log("Pinged your deployment. You successfully connected to MongoDB!");
-  } catch (err) {
-    console.error("Connection error:", err);
-    fs.appendFileSync("log.json", JSON.stringify(err, null, 2));
-  } finally {
-    await mongoClient.close();
-  }
-}
-run()
+    return mongoClient
+      .db("catnasta")
+      .collection("live_games") as unknown as SavedGameCollection;
+  },
+  (gameId) => games.find((game) => game.gameId === gameId),
+);
+setGameChangeListener(gameStore.changed);
 
 function generateAccessToken(username: string) {
   return jwt.sign(
@@ -94,11 +97,66 @@ const port = 5001;
 app.use(express.json());
 app.use(cors());
 
-const server = app.listen(port, () => {
-  console.log(`[server]: Server is running at http://localhost:${port}`);
-});
+const server = http.createServer(app);
 const broker = createBroker(server);
 const lifecycle = createLifecycle(broker, mongoClient);
+
+/** Puts back the games that were in progress when the server last stopped. */
+async function restoreGames() {
+  const saved = await gameStore.load();
+  for (const { game, savedAt } of saved) {
+    if (game.gameState.gameOver || games.some(({ gameId }) => gameId === game.gameId)) {
+      continue;
+    }
+    games.push(game);
+    resumeGame(broker, game, mongoClient, savedAt);
+    // Nobody is connected yet; anyone who doesn't come back forfeits as usual.
+    lifecycle.sync(game);
+  }
+  if (saved.length > 0) {
+    console.log(`[server]: Restored ${games.length} game(s) in progress`);
+  }
+}
+
+async function start() {
+  try {
+    await mongoClient.connect();
+    await mongoClient.db("admin").command({ ping: 1 });
+    console.log("Pinged your deployment. You successfully connected to MongoDB!");
+    await restoreGames();
+  } catch (err) {
+    console.error("Connection error:", err);
+    fs.appendFileSync("log.json", JSON.stringify(err, null, 2));
+  }
+  // Only take players once their games are back, so nobody rejoins an empty table.
+  server.listen(port, () => {
+    console.log(`[server]: Server is running at http://localhost:${port}`);
+  });
+}
+start();
+
+let shuttingDown = false;
+/** Saves every game in progress before the process stops, e.g. for a deploy. */
+async function shutdown(signal: string) {
+  if (shuttingDown) {
+    return;
+  }
+  shuttingDown = true;
+  console.log(`[server]: ${signal} received, saving ${games.length} game(s) in progress`);
+  // Disconnect players first so no move lands after the final save.
+  broker.close();
+  server.close();
+  try {
+    // Re-saving every game stamps the time the clocks stopped.
+    await gameStore.saveNow(games.map(({ gameId }) => gameId));
+    await mongoClient.close();
+  } catch (err) {
+    console.error("Could not save games before shutting down", err);
+  }
+  process.exit(0);
+}
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));
 
 broker.onMessage(async (topic, message) => {
   if (topic === "catnasta/chat") {
@@ -172,6 +230,7 @@ broker.onMessage(async (topic, message) => {
         pickUpPileDispatch(broker, gameState, msg);
         break;
     }
+    gameChanged(game.gameId);
   }
 });
 
@@ -601,6 +660,7 @@ app.post("/create_game", async (req: Request, res: Response) => {
     },
   };
   games.push(game);
+  gameChanged(game.gameId);
   publishGameList(broker);
   return res.send({ id: game.gameId });
 });
@@ -635,6 +695,7 @@ app.put("/join_game", async (req: Request, res: Response) => {
     games.map((game) => {
       if (game.gameId === id) return updatedGame;
     });
+    gameChanged(id);
     publishGameList(broker);
     return res.send({ id: id });
   }

@@ -18,7 +18,7 @@ export interface Broker {
   onSubscriptionChange(handler: SubscriptionHandler): void;
 }
 
-export function createBroker(server: Server): Broker {
+export function createBroker(server: Server): Broker & { close(): void } {
   const wss = new WebSocketServer({ server, path: "/ws" });
   const subscriptions = new Map<string, Set<WebSocket>>();
   const handlers: MessageHandler[] = [];
@@ -103,6 +103,11 @@ export function createBroker(server: Server): Broker {
     },
     onSubscriptionChange: (handler) => {
       subscriptionHandlers.push(handler);
+    },
+    /** Disconnects every client; they reconnect on their own once the server is back. */
+    close: () => {
+      wss.clients.forEach((socket) => socket.close(1012, "Server restarting"));
+      wss.close();
     },
   };
 }

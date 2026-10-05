@@ -129,6 +129,11 @@ network, so the API and MongoDB are never reachable from outside.
 4. In Cloudflare, point an `A` record for the domain at the Dokploy server.
    WebSockets work through Cloudflare's proxy without extra setup.
 
+Redeploying doesn't end games in progress. The API saves every live game to
+MongoDB (`live_games`) as it changes and once more when it gets `SIGTERM`, then
+restores them on startup. Turn clocks and round breaks carry on with the time
+they had left, and players' tables reconnect and catch up on their own.
+
 To run it locally, create the network once with
 `docker network create dokploy-network`, copy `.env.example` to `.env`, and run
 `docker compose -f docker-compose.prod.yml up -d --build`.
