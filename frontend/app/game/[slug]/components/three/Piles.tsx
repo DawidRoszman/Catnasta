@@ -1,8 +1,9 @@
 "use client";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
-import { useFrame } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import { easing } from "maath";
+import { frameStep, usePulseFrames } from "./frames";
 import { getCardGeometry, getCardTexture } from "./textures";
 import { CARD_HEIGHT, CARD_WIDTH, DISCARD_POSITION, LITTER_LEVEL, STOCK_POSITION, pileHeight } from "./tableLayout";
 import { BOX_DEPTH, BOX_WIDTH, LitterBox } from "./LitterBox";
@@ -33,10 +34,17 @@ function ActionRing({
   depth?: number;
 }) {
   const material = useRef<THREE.MeshBasicMaterial>(null);
+  const invalidate = useThree((state) => state.invalidate);
+  usePulseFrames(active);
+  // Fading out after the pile stops being clickable needs a few frames too.
+  useEffect(() => invalidate(), [active, invalidate]);
   useFrame((state, delta) => {
     if (material.current) {
       const target = active ? 0.45 + Math.sin(state.clock.elapsedTime * 3.5) * 0.25 : 0;
-      easing.damp(material.current, "opacity", target, 0.12, delta);
+      const fading = easing.damp(material.current, "opacity", target, 0.12, frameStep(delta));
+      if (fading && !active) {
+        state.invalidate();
+      }
     }
   });
   return (

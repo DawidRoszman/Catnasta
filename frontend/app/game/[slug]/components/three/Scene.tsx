@@ -1,8 +1,7 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import * as THREE from "three";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { easing } from "maath";
+import { Canvas, useThree } from "@react-three/fiber";
 import { ensureCardFonts } from "@/app/lib/cards/draw";
 import Card3D from "./Card3D";
 import TableSkeleton from "../TableSkeleton";
@@ -21,32 +20,25 @@ const HORIZONTAL_FOV = 66;
 
 function CameraRig() {
   const size = useThree((state) => state.size);
+  const get = useThree((state) => state.get);
   const aspect = size.width / Math.max(size.height, 1);
-  // Keep the whole table in frame on narrow screens by widening the vertical fov.
-  const fov = THREE.MathUtils.clamp(
-    THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(HORIZONTAL_FOV / 2)) / aspect)),
-    38,
-    80,
-  );
-  const base = useMemo(
-    () => new THREE.Vector3(0, aspect < 1 ? 10.5 : 8.6, aspect < 1 ? 8.6 : 8.1),
-    [aspect],
-  );
 
-  useFrame((state, delta) => {
-    const camera = state.camera as THREE.PerspectiveCamera;
-    if (camera.fov !== fov) {
-      camera.fov = fov;
-      camera.updateProjectionMatrix();
-    }
-    easing.damp3(
-      camera.position,
-      [base.x + state.pointer.x * 0.35, base.y + state.pointer.y * 0.15, base.z],
-      0.6,
-      delta,
+  // A fixed camera: it only moves when the window's shape changes. (Drifting with
+  // the pointer looked nice but redrew the table on every mouse move.)
+  useLayoutEffect(() => {
+    const { camera: base, invalidate } = get();
+    const camera = base as THREE.PerspectiveCamera;
+    // Keep the whole table in frame on narrow screens by widening the vertical fov.
+    camera.fov = THREE.MathUtils.clamp(
+      THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(HORIZONTAL_FOV / 2)) / aspect)),
+      38,
+      80,
     );
+    camera.position.set(0, aspect < 1 ? 10.5 : 8.6, aspect < 1 ? 8.6 : 8.1);
     camera.lookAt(LOOK_AT);
-  });
+    camera.updateProjectionMatrix();
+    invalidate();
+  }, [aspect, get]);
   return null;
 }
 
@@ -101,9 +93,12 @@ export default function Scene(props: SceneProps) {
     <Canvas
       shadows
       flat
-      dpr={[1, 2]}
+      // Draw only when something moves or changes, not 60 times a second.
+      frameloop="demand"
+      // Full Retina resolution costs far more than it shows at this camera distance.
+      dpr={[1, 1.5]}
       camera={{ position: [0, 8.6, 8.1], fov: 42, near: 0.1, far: 60 }}
-      gl={{ antialias: true, preserveDrawingBuffer: true }}
+      gl={{ antialias: true, powerPreference: "low-power" }}
       onPointerMissed={() => (document.body.style.cursor = "")}
       aria-label="Card table"
       id="game-canvas"

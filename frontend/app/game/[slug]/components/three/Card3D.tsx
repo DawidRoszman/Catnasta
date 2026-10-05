@@ -1,11 +1,12 @@
 "use client";
-import React, { memo, useMemo, useRef, useState } from "react";
+import React, { memo, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
-import { ThreeEvent, useFrame } from "@react-three/fiber";
+import { ThreeEvent, useFrame, useThree } from "@react-three/fiber";
 import { easing } from "maath";
 import { PlayingCard } from "@/app/lib/cards/draw";
 import { getCardGeometry, getCardTexture, getGoldTexture, getOutlineGeometry } from "./textures";
 import { Glow } from "./tableLayout";
+import { frameStep, usePulseFrames } from "./frames";
 
 /** Outline colours; gold ones use the gilt texture instead of a flat colour. */
 const GLOW_COLORS: Record<Glow, string | "gold"> = {
@@ -38,22 +39,33 @@ function Card3D({ card, position, quaternion, spawn, glow, hoverLift, onClick }:
   const interactive = onClick !== undefined;
   const outlineColor = GLOW_COLORS[glow ?? "selected"];
 
-  useFrame((state, delta) => {
+  // A new spot, glow or hover state means the card has somewhere to move.
+  const invalidate = useThree((state) => state.invalidate);
+  useEffect(() => invalidate(), [position, quaternion, glow, hovered, invalidate]);
+  usePulseFrames(glow === "target");
+
+  useFrame((state, rawDelta) => {
     if (!group.current || !inner.current) {
       return;
     }
-    easing.damp3(group.current.position, position, 0.16, delta);
-    easing.dampQ(group.current.quaternion, quaternion, 0.16, delta);
+    const delta = frameStep(rawDelta);
     const lifted = hovered && interactive;
-    easing.damp3(
+    const moved = easing.damp3(group.current.position, position, 0.16, delta);
+    const turned = easing.dampQ(group.current.quaternion, quaternion, 0.16, delta);
+    const lifting = easing.damp3(
       inner.current.position,
       [0, lifted && hoverLift ? 0.12 : 0, lifted ? 0.05 : 0],
       0.08,
       delta,
     );
+    let fading = false;
     if (glowMaterial.current) {
       const pulse = glow === "target" ? 0.55 + Math.sin(state.clock.elapsedTime * 4) * 0.3 : 1;
-      easing.damp(glowMaterial.current, "opacity", glow ? pulse : lifted ? 0.75 : 0, 0.1, delta);
+      fading = easing.damp(glowMaterial.current, "opacity", glow ? pulse : lifted ? 0.75 : 0, 0.1, delta);
+    }
+    // Keep drawing until the card settles; pulses keep their own, slower, pace.
+    if ((moved || turned || lifting || fading) && glow !== "target") {
+      state.invalidate();
     }
   });
 
