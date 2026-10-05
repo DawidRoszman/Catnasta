@@ -1,5 +1,6 @@
 // Registers an opponent through the API and deals a table in their name,
 // so a single browser can join it and start a two-player game.
+// Pass PRIVATE: "true" to deal a private table that stays out of the lobby.
 const headers = { "Content-Type": "application/json" };
 const opponent = "rival" + Date.now().toString(36);
 
@@ -13,7 +14,10 @@ if (!register.ok) {
 
 const table = http.post(API_URL + "/create_game", {
   headers,
-  body: JSON.stringify({ name: opponent }),
+  body: JSON.stringify({
+    name: opponent,
+    private: typeof PRIVATE !== "undefined" && PRIVATE === "true",
+  }),
 });
 const id = json(table.body).id;
 if (!id) {

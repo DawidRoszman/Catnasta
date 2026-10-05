@@ -1,0 +1,34 @@
+url: http://localhost:3000
+name: Join a table straight from its invite link
+---
+- launchApp:
+    clearState: true
+- openLink: ${BASE_URL}
+- runFlow: ../subflows/register.yaml
+- runScript:
+    file: ../scripts/opponentTable.js
+    env:
+      API_URL: ${API_URL}
+
+# Opening the link is all it takes: no code to type, no lobby.
+- openLink: ${BASE_URL + "/game/" + output.tableCode}
+- extendedWaitUntil:
+    visible:
+      id: "action-dock"
+    timeout: 20000
+- assertNotVisible: "Waiting for an opponent"
+- assertVisible: ${output.opponent}
+- assertVisible: ${output.tableCode}
+
+# A link to a table that's already full sends you back to the lobby.
+- runScript:
+    file: ../scripts/fullTable.js
+    env:
+      API_URL: ${API_URL}
+- openLink: ${BASE_URL + "/game/" + output.fullTableCode}
+- extendedWaitUntil:
+    visible: "Game is full"
+    timeout: 10000
+- extendedWaitUntil:
+    visible: "Open tables"
+    timeout: 10000

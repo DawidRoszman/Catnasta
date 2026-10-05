@@ -1,0 +1,60 @@
+url: http://localhost:3000
+name: Read the full rules
+tags:
+  - smoke
+---
+- launchApp:
+    clearState: true
+- openLink: ${BASE_URL}
+- tapOn: "Rules"
+- assertVisible: "How a turn works"
+- scrollUntilVisible:
+    element: ".*scores 100 points, whether or not you've melded.*"
+- scrollUntilVisible:
+    element:
+      id: "detailed-rules-button"
+    direction: UP
+- tapOn:
+    id: "detailed-rules-button"
+- assertVisible: "Full rules"
+- assertVisible: "The deal"
+
+# The rules scroll inside the dialog; scrollUntilVisible only moves the page.
+- repeat:
+    while:
+      notVisible: "Total 1,500 – 2,995"
+    times: 8
+    commands:
+      - swipe:
+          start: "50%,70%"
+          end: "50%,40%"
+- assertVisible: "Total 1,500 – 2,995"
+- repeat:
+    while:
+      notVisible: "Rounds and winning"
+    times: 8
+    commands:
+      - swipe:
+          start: "50%,70%"
+          end: "50%,40%"
+- repeat:
+    while:
+      notVisible: "5,000 points"
+    times: 4
+    commands:
+      - swipe:
+          start: "50%,70%"
+          end: "50%,55%"
+- assertVisible: "5,000 points"
+- repeat:
+    while:
+      notVisible: ".*no extra bonus for collecting all four.*"
+    times: 8
+    commands:
+      - swipe:
+          start: "50%,70%"
+          end: "50%,40%"
+- assertVisible: ".*no extra bonus for collecting all four.*"
+
+- tapOn: "Close"
+- assertNotVisible: "Full rules"

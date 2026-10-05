@@ -1,0 +1,44 @@
+url: http://localhost:3000
+name: Private tables stay out of the lobby
+---
+- launchApp:
+    clearState: true
+- openLink: ${BASE_URL}
+- runFlow: ../subflows/register.yaml
+
+# Deal a private table from the home page.
+- tapOn:
+    id: "create-private-game"
+- extendedWaitUntil:
+    visible:
+      id: "waiting-room"
+    timeout: 15000
+- assertVisible: "Waiting for an opponent"
+- copyTextFrom:
+    id: "game-code"
+- assertTrue: ${maestro.copiedText.length == 6}
+- openLink: ${BASE_URL}/game
+- assertVisible: "Open tables"
+- waitForAnimationToEnd
+- assertNotVisible: ${maestro.copiedText}
+
+# Someone else's private table is hidden too, but the code still gets you in.
+- runScript:
+    file: ../scripts/opponentTable.js
+    env:
+      API_URL: ${API_URL}
+      PRIVATE: "true"
+- openLink: ${BASE_URL}/game
+- assertVisible: "Open tables"
+- waitForAnimationToEnd
+- assertNotVisible: ${output.tableCode}
+- openLink: ${BASE_URL}
+- tapOn:
+    id: "table-code"
+- inputText: ${output.tableCode}
+- tapOn: "Join"
+- extendedWaitUntil:
+    visible:
+      id: "action-dock"
+    timeout: 20000
+- assertVisible: ${output.opponent}
