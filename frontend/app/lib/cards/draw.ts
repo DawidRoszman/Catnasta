@@ -867,7 +867,7 @@ export function pileBlocker(
     return "A black three or wild card on top blocks the discard pile.";
   }
   if (!hasMelded) {
-    return "Make your first meld before taking the discard pile.";
+    return "Meld needed to take litterbox pile.";
   }
   const pairs = hand.filter((card) => card.rank === top.rank).length;
   if (pairs < 2) {
