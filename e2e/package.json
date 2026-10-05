@@ -1,0 +1,15 @@
+{
+  "name": "catnasta-e2e",
+  "private": true,
+  "description": "End-to-end tests for Catnasta, run with Playwright against a running stack",
+  "scripts": {
+    "test": "playwright test",
+    "report": "playwright show-report"
+  },
+  "packageManager": "pnpm@11.0.9",
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^26.6.4",
+    "typescript": "^7.0.2"
+  }
+}

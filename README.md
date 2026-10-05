@@ -140,11 +140,12 @@ To run it locally, create the network once with
 
 ## End-to-end tests
 
-The [Maestro](https://maestro.dev) web flows in `e2e/` cover the landing page, sign up and log in, dealing a table, playing a turn on the 3D board and the lobby chat. With the stack running, play them in a headless browser:
+The [Playwright](https://playwright.dev) tests in `e2e/` cover the landing page, sign up and log in, dealing tables (with options, private and from invite links), playing a turn on the 3D board, leaving and forfeiting, the turn timer, the full rules and the lobby chat. With the stack running, run them in headless Chromium:
 
 ```sh
-./e2e/run.sh                          # all flows
-./e2e/run.sh e2e/flows/02-auth.yaml   # a single flow
+./e2e/run.sh                 # all tests (installs dependencies and Chromium on first run)
+./e2e/run.sh auth            # tests whose file name matches "auth"
+./e2e/run.sh --headed        # watch them in a browser window
 ```
 
-Set `BASE_URL` and `API_URL` to point the flows at another environment.
+Set `BASE_URL` and `API_URL` to point the tests at another environment. Failures keep a trace and a screenshot in `e2e/test-results/`, and `pnpm --dir e2e report` opens the HTML report.
