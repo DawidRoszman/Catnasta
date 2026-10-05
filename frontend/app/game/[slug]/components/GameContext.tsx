@@ -11,6 +11,7 @@ import client from "@/app/lib/socket";
 import { useRouter } from "next/navigation";
 import { useUserContext } from "@/app/components/UserContext";
 import { useToast } from "@/app/components/ui/Feedback";
+import { joinGame } from "@/app/lib/joinGame";
 
 export const GameContext = createContext<Game | null>(null);
 export const GameDispatchContext = createContext<Dispatch<Action> | null>(null);
@@ -105,16 +106,29 @@ export function GameContextProvider({
 
     const gameTopic = `catnasta/game/${gameId}`;
     const privateTopic = `catnasta/game/${gameId}/${username}`;
+    let cancelled = false;
     client.subscribe(gameTopic);
     client.subscribe(privateTopic);
-    client.publish(
-      "catnasta/game",
-      JSON.stringify({
-        id: gameId,
-        name: username,
-        type: "PLAYER_JOINED",
-      }),
-    );
+    // Opening an invite link lands here without going through the lobby, so
+    // claim the seat first. The server lets already-seated players straight back in.
+    joinGame(gameId, username).then((result) => {
+      if (cancelled) {
+        return;
+      }
+      if ("error" in result) {
+        toast(result.error, { tone: "error", title: "Can't join this table" });
+        router.replace("/game");
+        return;
+      }
+      client.publish(
+        "catnasta/game",
+        JSON.stringify({
+          id: gameId,
+          name: username,
+          type: "PLAYER_JOINED",
+        }),
+      );
+    });
 
     const handleMessage = (topic: string, message: string) => {
       if (topic !== gameTopic && topic !== privateTopic) {
@@ -251,11 +265,12 @@ export function GameContextProvider({
     client.on("message", handleMessage);
 
     return () => {
+      cancelled = true;
       client.off("message", handleMessage);
       client.unsubscribe(gameTopic);
       client.unsubscribe(privateTopic);
     };
-  }, [gameId, username, toast]);
+  }, [gameId, username, toast, router]);
 
   return (
     <GameContext.Provider value={state}>
