@@ -91,47 +91,85 @@ function flatQuaternion(faceUp: boolean, yaw = 0) {
 
 /** A meld of this many cards is a catnasta, squared up into a sideways stack. */
 const CATNASTA_SIZE = 7;
-/** A sideways stack is a card's height wide, so its column needs more room. */
-const CATNASTA_SPACING = CARD_HEIGHT + 0.14;
 const SIDEWAYS = Math.PI / 2;
+/** Catnastas stand in their own column just right of the red threes, one under another. */
+const CATNASTA_X = RED_THREE_X + CARD_WIDTH / 2 + 0.08 + CARD_HEIGHT / 2;
+/**
+ * How far down the table each player's column may reach before its stacks start
+ * to overlap. Yours stops short of your hand, which hides the near edge of the table.
+ */
+const MY_CATNASTA_DEPTH = 1.45;
+const OPPONENT_CATNASTA_DEPTH = 2.1;
+/** Where ordinary melds start when the catnasta column is in use. */
+const MELDS_AFTER_CATNASTAS = CATNASTA_X + CARD_HEIGHT / 2 + 0.12 + CARD_WIDTH / 2;
 
-/** Centre x of each meld column, making room for catnastas and squeezing up when the row is full. */
-function meldColumns(melds: PlayingCard[][]) {
-  const widths = melds.map((meld) => (meld.length >= CATNASTA_SIZE ? CATNASTA_SPACING : MELD_SPACING));
-  const gaps = widths.slice(1).map((width, i) => (widths[i] + width) / 2);
-  const start = MELD_AREA_LEFT + ((widths[0] ?? MELD_SPACING) - MELD_SPACING) / 2;
-  const span = gaps.reduce((sum, gap) => sum + gap, 0);
-  const squeeze = Math.min(1, (MELD_AREA_RIGHT - start) / Math.max(span, 0.001));
-  let x = start;
-  return widths.map((_, i) => {
-    if (i > 0) {
-      x += gaps[i - 1] * squeeze;
-    }
-    return x;
-  });
+/** Centre x of each ordinary meld column, squeezing up when the row is full. */
+function meldColumns(count: number, left: number) {
+  const spacing = Math.min(MELD_SPACING, (MELD_AREA_RIGHT - left) / Math.max(count - 1, 1));
+  return Array.from({ length: count }, (_, i) => left + i * spacing);
 }
 
-/** A finished catnasta: the cards squared up and turned sideways, its colour card on top. */
+/**
+ * A finished catnasta: the cards squared up and turned sideways with its colour
+ * card on top, the `slot`-th stack in the column beside the red threes.
+ */
 function layCatnasta(
   placements: CardPlacement[],
   cards: PlayingCard[],
-  x: number,
   top: number,
+  slot: number,
+  slots: number,
+  depth: number,
   extra: Partial<CardPlacement>,
 ) {
+  const step = Math.min(CARD_WIDTH + 0.08, (depth - CARD_WIDTH) / Math.max(slots - 1, 1));
+  const z = top + CARD_WIDTH / 2 + 0.04 + slot * step;
+  // Each stack sits a little higher than the one above it, so overlapping stacks never flicker.
+  const base = 0.004 + slot * 0.03;
   const shown = catnastaTopCard(cards);
   const stack = [...cards.filter((card) => card !== shown), shown];
   stack.forEach((card, k) => {
     placements.push({
       key: card.id,
       card,
-      position: new THREE.Vector3(x, 0.004 + k * CARD_GAP, top + CARD_WIDTH / 2 + 0.04),
+      position: new THREE.Vector3(CATNASTA_X, base + k * CARD_GAP, z),
       // Cards underneath sit a touch askew, so the stack shows its edges.
       quaternion: flatQuaternion(true, SIDEWAYS + (card === shown ? 0 : jitter(card.id, 0.07))),
       glow: "catnasta",
       ...extra,
     });
   });
+}
+
+/** Lays out one player's melds: catnastas in the column by the red threes, the rest in a row. */
+function layMeldRow(
+  placements: CardPlacement[],
+  melds: PlayingCard[][],
+  staged: PlayingCard[][],
+  top: number,
+  catnastaDepth: number,
+  extraFor: (index: number, meld: PlayingCard[]) => Partial<CardPlacement>,
+) {
+  const catnastas = melds.flatMap((meld, index) => (meld.length >= CATNASTA_SIZE ? [index] : []));
+  const ordinary = melds.flatMap((meld, index) => (meld.length >= CATNASTA_SIZE ? [] : [index]));
+  catnastas.forEach((index, slot) =>
+    layCatnasta(placements, melds[index], top, slot, catnastas.length, catnastaDepth, extraFor(index, melds[index])),
+  );
+  const columns = meldColumns(
+    ordinary.length + staged.length,
+    catnastas.length > 0 ? MELDS_AFTER_CATNASTAS : MELD_AREA_LEFT,
+  );
+  ordinary.forEach((index, column) => layMeld(placements, melds[index], columns[column], top, extraFor(index, melds[index])));
+  staged.forEach((meld, index) =>
+    layMeld(
+      placements,
+      meld,
+      columns[ordinary.length + index],
+      top,
+      { target: { type: "staged", index }, glow: "staged" },
+      0.06,
+    ),
+  );
 }
 
 function layMeld(
@@ -143,10 +181,6 @@ function layMeld(
   lift = 0,
 ) {
   const isCatnasta = cards.length >= CATNASTA_SIZE;
-  if (isCatnasta && lift === 0) {
-    layCatnasta(placements, cards, x, top, extra);
-    return;
-  }
   cards.forEach((card, k) => {
     placements.push({
       key: card.id,
@@ -207,27 +241,11 @@ export function computeLayout(input: LayoutInput): CardPlacement[] {
   }
 
   // Melds, with staged (not yet sent) melds continuing the player's row.
-  const myColumns = meldColumns([...input.myMelds, ...input.staged]);
-  input.myMelds.forEach((meld, index) => {
-    layMeld(placements, meld, myColumns[index], MY_MELD_TOP, {
-      target: { type: "meld", index },
-      glow: meld.length >= CATNASTA_SIZE ? "catnasta" : input.meldsAreTargets ? "target" : undefined,
-    });
-  });
-  input.staged.forEach((meld, index) => {
-    layMeld(
-      placements,
-      meld,
-      myColumns[input.myMelds.length + index],
-      MY_MELD_TOP,
-      { target: { type: "staged", index }, glow: "staged" },
-      0.06,
-    );
-  });
-  const opponentColumns = meldColumns(input.opponentMelds);
-  input.opponentMelds.forEach((meld, index) => {
-    layMeld(placements, meld, opponentColumns[index], OPPONENT_MELD_TOP, {});
-  });
+  layMeldRow(placements, input.myMelds, input.staged, MY_MELD_TOP, MY_CATNASTA_DEPTH, (index, meld) => ({
+    target: { type: "meld", index },
+    glow: meld.length >= CATNASTA_SIZE ? "catnasta" : input.meldsAreTargets ? "target" : undefined,
+  }));
+  layMeldRow(placements, input.opponentMelds, [], OPPONENT_MELD_TOP, OPPONENT_CATNASTA_DEPTH, () => ({}));
 
   // Red threes sit in their own column at the left of each meld row.
   input.myRedThrees.forEach((card, k) => {
