@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Lock, Plus, SlidersHorizontal, Trophy, Users } from "lucide-react";
+import { Plus, Trophy, Users } from "lucide-react";
 import type { Game } from "../page";
 import client from "@/app/lib/socket";
 import { TableOptions, createGame, joinGame } from "@/app/lib/joinGame";
@@ -64,38 +64,9 @@ const GameList = ({ games }: { games: Game[] }) => {
           <h1 className="font-display text-4xl font-semibold tracking-tight">Open tables</h1>
           <p className="mt-2 text-cream-dim">Pick a seat, or deal a new table and invite a friend.</p>
         </div>
-        <div className="flex gap-2">
-          <Button
-            size="lg"
-            variant="secondary"
-            onClick={() => go(() => createGame(username, { private: true }), "private")}
-            loading={busy === "private"}
-            disabled={!username}
-            title="Hidden from the lobby. Only people with the code or invite link can join."
-          >
-            <Lock className="h-5 w-5" />Private table
-          </Button>
-          <Button
-            size="lg"
-            onClick={() => go(() => createGame(username), "create")}
-            loading={busy === "create"}
-            disabled={!username}
-          >
-            <Plus className="h-5 w-5" />New table
-          </Button>
-          <Button
-            size="lg"
-            variant="secondary"
-            className="px-3.5"
-            onClick={() => setOptionsOpen(true)}
-            disabled={!username}
-            id="table-options-button"
-            aria-label="Table options"
-            title="Choose points to win, round break and privacy"
-          >
-            <SlidersHorizontal className="h-5 w-5" />
-          </Button>
-        </div>
+        <Button size="lg" onClick={() => setOptionsOpen(true)} disabled={!username} id="create-game">
+          <Plus className="h-5 w-5" />Deal a new table
+        </Button>
         <TableOptionsDialog
           open={optionsOpen}
           onClose={() => setOptionsOpen(false)}

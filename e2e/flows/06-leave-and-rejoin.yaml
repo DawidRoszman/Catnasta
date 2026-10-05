@@ -48,7 +48,10 @@ name: Leave, rejoin and forfeit a table
 - assertNotVisible: ${".*" + output.tableCode + ".*"}
 
 # A table that hasn't started is simply closed.
-- tapOn: "New table"
+- tapOn:
+    id: "create-game"
+- assertVisible: "Table options"
+- tapOn: "Deal table"
 - extendedWaitUntil:
     visible:
       id: "waiting-room"

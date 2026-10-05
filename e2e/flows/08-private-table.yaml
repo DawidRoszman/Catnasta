@@ -8,7 +8,11 @@ name: Private tables stay out of the lobby
 
 # Deal a private table from the home page.
 - tapOn:
-    id: "create-private-game"
+    id: "create-game"
+- assertVisible: "Table options"
+- tapOn:
+    id: "private-table"
+- tapOn: "Deal table"
 - extendedWaitUntil:
     visible:
       id: "waiting-room"

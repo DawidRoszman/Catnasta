@@ -7,6 +7,8 @@ name: Deal a table and wait for an opponent
 - runFlow: ../subflows/register.yaml
 - tapOn:
     id: "create-game"
+- assertVisible: "Table options"
+- tapOn: "Deal table"
 - extendedWaitUntil:
     visible:
       id: "waiting-room"

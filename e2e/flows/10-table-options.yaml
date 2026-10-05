@@ -8,7 +8,7 @@ name: Deal a table with custom options
 
 # A public table to 1,000 points with a short break shows its target in the lobby.
 - tapOn:
-    id: "table-options-button"
+    id: "create-game"
 - assertVisible: "Table options"
 - assertVisible: "Points to win"
 - tapOn: "1,000"
@@ -27,7 +27,7 @@ name: Deal a table with custom options
 
 # The same dialog deals private tables, which stay out of the lobby.
 - tapOn:
-    id: "table-options-button"
+    id: "create-game"
 - tapOn: "2,500"
 - assertVisible: "Off"
 - tapOn:

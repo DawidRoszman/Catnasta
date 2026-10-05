@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Lock, Plus, SlidersHorizontal } from "lucide-react";
+import { ArrowRight, Plus } from "lucide-react";
 import { useUserContext } from "./UserContext";
 import { Button, ButtonLink } from "./ui/Button";
 import { Input } from "./ui/Input";
@@ -15,7 +15,7 @@ export default function PlayPanel() {
   const router = useRouter();
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
-  const [busy, setBusy] = useState<"create" | "private" | "join" | null>(null);
+  const [busy, setBusy] = useState<"join" | null>(null);
   const [optionsOpen, setOptionsOpen] = useState(false);
 
   if (!user?.ready) {
@@ -47,18 +47,6 @@ export default function PlayPanel() {
     );
   }
 
-  const handleCreate = async (isPrivate: boolean) => {
-    setBusy(isPrivate ? "private" : "create");
-    setError("");
-    const result = await createGame(user.username, { private: isPrivate });
-    if ("error" in result) {
-      setError(result.error);
-      setBusy(null);
-      return;
-    }
-    router.push("/game/" + result.id);
-  };
-
   const handleCreateWithOptions = async (options: TableOptions) => {
     const result = await createGame(user.username, options);
     if ("error" in result) {
@@ -82,41 +70,15 @@ export default function PlayPanel() {
 
   return (
     <Panel className="p-6" id="play">
-      <div className="flex gap-2">
-        <Button
-          size="lg"
-          className="flex-1"
-          onClick={() => handleCreate(false)}
-          loading={busy === "create"}
-          disabled={busy !== null}
-          id="create-game"
-        >
-          <Plus className="h-5 w-5" />Deal a new table
-        </Button>
-        <Button
-          size="lg"
-          variant="secondary"
-          onClick={() => handleCreate(true)}
-          loading={busy === "private"}
-          disabled={busy !== null}
-          id="create-private-game"
-          title="Hidden from the lobby. Only people with the code or invite link can join."
-        >
-          <Lock className="h-5 w-5" />Private
-        </Button>
-        <Button
-          size="lg"
-          variant="secondary"
-          className="px-3.5"
-          onClick={() => setOptionsOpen(true)}
-          disabled={busy !== null}
-          id="table-options-button"
-          aria-label="Table options"
-          title="Choose points to win, round break and privacy"
-        >
-          <SlidersHorizontal className="h-5 w-5" />
-        </Button>
-      </div>
+      <Button
+        size="lg"
+        className="w-full"
+        onClick={() => setOptionsOpen(true)}
+        disabled={busy !== null}
+        id="create-game"
+      >
+        <Plus className="h-5 w-5" />Deal a new table
+      </Button>
       <TableOptionsDialog
         open={optionsOpen}
         onClose={() => setOptionsOpen(false)}
