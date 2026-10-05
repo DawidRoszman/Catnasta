@@ -169,14 +169,14 @@ export function DetailedRulesModal({ open, onClose }: { open: boolean; onClose: 
           <p>
             The top card and two of those naturals are <B>melded at once</B> — joining your meld of
             that rank if you have one — and the rest of the pile goes into your hand. You must still
-            have a card left to discard: taking the pile counts as your draw, so you go on to meld and
-            then <B>discard to end your turn</B>.
+            have a card left to discard: taking the pile counts as your draw, and after it the only
+            move left is to <B>discard to end your turn</B> — no other melding that turn.
           </p>
           <p>
             <B>Top card matches one of your catnastas?</B> Then you <B>must</B> take the pile when your
             turn comes, instead of drawing: the card goes straight onto your catnasta and the rest of
-            the pile into your hand. Then meld and discard as usual. So think twice before discarding a
-            card that matches your opponent&apos;s catnasta.
+            the pile into your hand. Then you discard, with no melding that turn. So think twice before
+            discarding a card that matches your opponent&apos;s catnasta.
           </p>
         </Section>
 

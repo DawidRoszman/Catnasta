@@ -168,8 +168,17 @@ export default function GameBoard() {
     return false;
   };
 
+  /** After taking the litterbox the turn is down to its discard. */
+  const requireMeldingAllowed = () => {
+    if (gameState.tookPile) {
+      toast("After taking the litterbox you can only discard.");
+      return false;
+    }
+    return true;
+  };
+
   const stageMeld = () => {
-    if (!requirePlayPhase()) {
+    if (!requirePlayPhase() || !requireMeldingAllowed()) {
       return;
     }
     if (liveSelected.size < 3) {
@@ -181,7 +190,7 @@ export default function GameBoard() {
   };
 
   const confirmMelds = () => {
-    if (!requirePlayPhase() || liveStaged.length === 0) {
+    if (!requirePlayPhase() || liveStaged.length === 0 || !requireMeldingAllowed()) {
       return;
     }
     send("MELD_CARDS", { melds: liveStaged });
@@ -193,7 +202,7 @@ export default function GameBoard() {
       toast("Select cards from your hand, then tap a meld to add them.");
       return;
     }
-    if (!requirePlayPhase()) {
+    if (!requirePlayPhase() || !requireMeldingAllowed()) {
       return;
     }
     send("ADD_TO_MELD", { meldId: meldIndex, cardsIds: [...liveSelected] });
@@ -294,7 +303,7 @@ export default function GameBoard() {
     opponentHandCount: gameState.player2.num_of_cards_in_hand,
     discardTop: gameState.discardPileTopCard,
     discardCount: gameState.discardPileCount,
-    meldsAreTargets: phase === "play" && liveSelected.size > 0,
+    meldsAreTargets: phase === "play" && !gameState.tookPile && liveSelected.size > 0,
   };
 
   return (

@@ -136,6 +136,7 @@ import { getMinimumFirstMeldPoints, lowestCardToDiscard } from "../game";
 import {
   DEFAULT_SETTINGS,
   discardCardDispatch,
+  dispatchAddToMeld,
   drawCardDispatch,
   games,
   meldCardDispatch,
@@ -427,6 +428,31 @@ describe("turns around the litterbox", () => {
     expect(gameState.turn).toBe("bob");
   });
 
+  test("after taking the pile the player can't meld or add to melds, only discard", async () => {
+    const nines = cards(2, Rank.NINE);
+    const kings = cards(3, Rank.KING);
+    const aces = cards(3, Rank.ACE);
+    const { broker, gameState, ofType } = setup({
+      player1: player("ann", { melds: [aces], hand: [...nines, ...kings, card(Rank.ACE), card(Rank.FOUR)] }),
+      discardPile: [card(Rank.SIX), card(Rank.NINE)],
+    });
+    pickUpPileDispatch(broker, gameState, msg("ann"));
+    expect(ofType("PILE_TAKEN")[0].msg).toEqual({ type: "PILE_TAKEN", player: "ann" });
+
+    meldCardDispatch(broker, gameState, msg("ann", { melds: [kings.map(({ id }) => id)] }));
+    const ace = gameState.player1.hand.find(({ rank }) => rank === Rank.ACE)!;
+    dispatchAddToMeld(broker, gameState, msg("ann", { meldId: 0, cardsIds: [ace.id] }));
+    expect(gameState.player1.melds.map((meld) => meld.length)).toEqual([3, 3]);
+    expect(ofType("MELD_ERROR").map(({ msg }) => msg.message)).toEqual([
+      "After taking the litterbox you can only discard.",
+      "After taking the litterbox you can only discard.",
+    ]);
+
+    await discardCardDispatch(broker, gameState, msg("ann", { cardId: kings[0].id }), {} as any, games);
+    expect(gameState.turn).toBe("bob");
+    expect(gameState.tookPile).toBe(false);
+  });
+
   test("discarding a card that matches the opponent's catnasta makes them take the pile as their draw", async () => {
     const eight = card(Rank.EIGHT, Suit.CLUB);
     const catnasta = cards(7, Rank.EIGHT);
@@ -448,7 +474,7 @@ describe("turns around the litterbox", () => {
     expect(gameState.hasDrawn).toBe(true);
     expect(ofType("PILE_FORCED")[0].msg).toMatchObject({ player: "bob", card: eight });
     expect(ofType("TURN").map(({ msg }) => msg)).toEqual([
-      expect.objectContaining({ current_player: "bob", has_drawn: true }),
+      expect.objectContaining({ current_player: "bob", has_drawn: true, took_pile: true }),
     ]);
   });
 

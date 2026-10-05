@@ -53,6 +53,8 @@ export interface GameState {
   turn: string;
   /** Whether the player whose turn it is has already drawn this turn. */
   hasDrawn?: boolean;
+  /** The player whose turn it is took the litterbox pile, so all that's left is the discard. */
+  tookPile?: boolean;
   /** Epoch ms when the current turn is played automatically, if turns are timed. */
   turnDeadline?: number;
   gameOver: boolean;

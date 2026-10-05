@@ -74,6 +74,8 @@ export interface Game {
     turn: string | null;
     /** Epoch ms when the current turn is played automatically, or null if untimed. */
     turnDeadline: number | null;
+    /** You took the litterbox this turn, so the only move left is the discard. */
+    tookPile: boolean;
     canDraw: boolean;
     canDiscard: boolean;
     canMeld: boolean;

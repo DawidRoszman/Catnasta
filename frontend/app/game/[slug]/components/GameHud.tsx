@@ -235,7 +235,9 @@ function StockPlate({
 const STATUS: Record<"draw" | "play" | "opponent", (game: Game) => string> = {
   draw: () => "Your turn — draw from the stock or take the litterbox pile",
   play: ({ gameState }) =>
-    gameState.player1.melds.length === 0
+    gameState.tookPile
+      ? "You took the litterbox — discard a card to end your turn"
+      : gameState.player1.melds.length === 0
       ? `Your first melds need ${minimumFirstMeld(gameState.player1.total)} points — or just discard`
       : "Select cards to meld, then discard one to end your turn",
   opponent: ({ gameState }) => `${gameState.player2.name} is thinking…`,
@@ -296,10 +298,13 @@ function ActionDock({
           )}
           {phase === "play" && (
             <>
-              <Button variant="secondary" onClick={onStageMeld} disabled={selectedCount < 3}>
-                <Sparkles className="h-4 w-4" />Stage meld
-              </Button>
-              {stagedCount > 0 && (
+              {/* After taking the litterbox the only move left is the discard. */}
+              {!game.gameState.tookPile && (
+                <Button variant="secondary" onClick={onStageMeld} disabled={selectedCount < 3}>
+                  <Sparkles className="h-4 w-4" />Stage meld
+                </Button>
+              )}
+              {stagedCount > 0 && !game.gameState.tookPile && (
                 <Button onClick={onConfirmMelds}>
                   <Check className="h-4 w-4" />Play {stagedCount} meld{stagedCount > 1 ? "s" : ""}
                 </Button>
@@ -575,8 +580,9 @@ export function RulesModal({ open, onClose }: { open: boolean; onClose: () => vo
             <li>A meld of seven or more cards is a <b className="text-brass">Catnasta</b>.</li>
             <li>
               To take the litterbox pile you need two naturals matching its top card; those three cards
-              are melded straight away, then you discard as usual. If it matches one of your catnastas,
-              you must take it instead of drawing: the card joins the catnasta.
+              are melded straight away, and then you can only discard. If it matches one of your
+              catnastas, you must take it instead of drawing: the card joins the catnasta, then you
+              discard.
             </li>
             <li>Red threes score 100 bonus points; a black three on the pile blocks it.</li>
             <li>

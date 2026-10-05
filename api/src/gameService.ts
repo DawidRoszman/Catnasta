@@ -188,6 +188,7 @@ export function startRoundDispatch(
       Math.random() < 0.5 ? gameState.player1.name : gameState.player2.name;
     gameState.turn = gameState.roundStarter;
     gameState.hasDrawn = false;
+    gameState.tookPile = false;
     gameState.gameStarted = true;
     startTurnClock(client, msg.id, gameState, mongoClient);
   }
@@ -203,6 +204,7 @@ function publishTable(client: Broker, gameId: string, gameState: GameState) {
       type: "GAME_START",
       current_player: gameState.turn,
       has_drawn: gameState.hasDrawn ?? false,
+      took_pile: gameState.tookPile ?? false,
       round: gameState.round,
       turn_deadline: gameState.turnDeadline ?? null,
     }),
@@ -338,6 +340,7 @@ async function endRound(
   });
   gameState.turn = "";
   gameState.hasDrawn = false;
+  gameState.tookPile = false;
   stopTurnClock(gameId);
   gameState.turnDeadline = undefined;
   publishScores(client, gameId, gameState);
@@ -591,13 +594,12 @@ export const discardCardDispatch = async (
   passTurn(client, msg.id, gameState, mongoClient);
 };
 
-/** Shows both tables a player's pile pickup: their melds, hand and the emptied litterbox. */
+/**
+ * Shows both tables a player's pile pickup. The hand and litterbox go first so
+ * the cards that moved to the table have left them before the melds arrive.
+ */
 function publishPickup(client: Broker, gameId: string, gameState: GameState, player: Player) {
   const opponent = player === gameState.player1 ? gameState.player2 : gameState.player1;
-  client.publish(
-    `catnasta/game/${gameId}`,
-    JSON.stringify({ type: "MELDED_CARDS", name: player.name, melds: player.melds }),
-  );
   client.publish(`catnasta/game/${gameId}/${player.name}`, JSON.stringify({ type: "HAND", hand: player.hand }));
   client.publish(
     `catnasta/game/${gameId}`,
@@ -610,6 +612,10 @@ function publishPickup(client: Broker, gameId: string, gameState: GameState, pla
   client.publish(
     `catnasta/game/${gameId}/${opponent.name}`,
     JSON.stringify({ type: "ENEMY_HAND", enemy_hand: player.hand.length }),
+  );
+  client.publish(
+    `catnasta/game/${gameId}`,
+    JSON.stringify({ type: "MELDED_CARDS", name: player.name, melds: player.melds }),
   );
 }
 
@@ -624,6 +630,7 @@ function passTurn(client: Broker, gameId: string, gameState: GameState, mongoCli
   const next = other(gameState.turn);
   gameState.turn = next.name;
   gameState.hasDrawn = false;
+  gameState.tookPile = false;
 
   const top = gameState.discardPile.at(-1);
   if (top && catnastaFor(next, top) && canPickUpPile(next, gameState.discardPile)) {
@@ -634,6 +641,7 @@ function passTurn(client: Broker, gameId: string, gameState: GameState, mongoCli
       JSON.stringify({ type: "PILE_FORCED", player: next.name, card: top }),
     );
     gameState.hasDrawn = true;
+    gameState.tookPile = true;
   }
 
   gameState.player1.score = calculatePlayerScore(gameState.player1).points;
@@ -645,6 +653,7 @@ function passTurn(client: Broker, gameId: string, gameState: GameState, mongoCli
       type: "TURN",
       current_player: gameState.turn,
       has_drawn: gameState.hasDrawn,
+      took_pile: gameState.tookPile ?? false,
       turn_deadline: gameState.turnDeadline ?? null,
     }),
   );
@@ -669,6 +678,16 @@ export const meldCardDispatch = (
   }
   if (gameState.turn !== msg.name) {
     console.log("wrong turn");
+    return;
+  }
+  if (gameState.tookPile) {
+    client.publish(
+      `catnasta/game/${msg.id}/${msg.name}`,
+      JSON.stringify({
+        type: "MELD_ERROR",
+        message: "After taking the litterbox you can only discard.",
+      }),
+    );
     return;
   }
   if (!msg.melds) {
@@ -777,6 +796,16 @@ export const dispatchAddToMeld = (
     console.log("wrong turn");
     return;
   }
+  if (gameState.tookPile) {
+    client.publish(
+      `catnasta/game/${msg.id}/${msg.name}`,
+      JSON.stringify({
+        type: "MELD_ERROR",
+        message: "After taking the litterbox you can only discard.",
+      }),
+    );
+    return;
+  }
   if (!msg.cardsIds) {
     console.log("no cards");
     return;
@@ -872,7 +901,9 @@ export const pickUpPileDispatch = (
     );
     return;
   }
-  // Taking the pile counts as the draw; the player still melds and discards to end the turn.
+  // Taking the pile counts as the draw, and after it the only move left is the discard.
   gameState.hasDrawn = true;
+  gameState.tookPile = true;
   publishPickup(client, msg.id, gameState, player);
+  client.publish(`catnasta/game/${msg.id}`, JSON.stringify({ type: "PILE_TAKEN", player: player.name }));
 };

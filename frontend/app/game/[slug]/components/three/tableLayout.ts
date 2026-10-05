@@ -284,7 +284,15 @@ export function computeLayout(input: LayoutInput): CardPlacement[] {
     });
   }
 
-  return placements;
+
+  // Updates arrive one message at a time, so a card can briefly be listed in two
+  // places (say, still in hand and already in a meld). Draw it once, where it was
+  // placed last: on the table rather than in the hand.
+  const seen = new Set<string>();
+  return placements
+    .reverse()
+    .filter(({ key }) => !seen.has(key) && Boolean(seen.add(key)))
+    .reverse();
 }
 
 /** Height of a pile with the given number of cards. */

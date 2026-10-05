@@ -51,6 +51,7 @@ function createInitialGame({ gameId, username }: { gameId: string; username: str
       gameOver: false,
       turn: null,
       turnDeadline: null,
+      tookPile: false,
       canDraw: false,
       canDiscard: false,
       canMeld: false,
@@ -179,15 +180,24 @@ export function GameContextProvider({
             payload: msg.current_player,
           });
           dispatch({ type: Type.SET_TURN_DEADLINE, payload: msg.turn_deadline ?? null });
+          dispatch({
+            type: Type.MODIFY,
+            payload: { tookPile: msg.current_player === username && Boolean(msg.took_pile) },
+          });
           // Rejoining mid-turn: the server remembers whether we already drew.
           if (msg.has_drawn && msg.current_player === username) {
             dispatch({ type: Type.PLAYER_DRAW_CARD, payload: { name: username } });
           }
           break;
+        case "PILE_TAKEN":
+          if (msg.player === username) {
+            dispatch({ type: Type.MODIFY, payload: { tookPile: true } });
+          }
+          break;
         case "PILE_FORCED":
           toast(
             msg.player === username
-              ? "Your catnasta took the litterbox pile. Meld if you like, then discard to end your turn."
+              ? "Your catnasta took the litterbox pile. Discard a card to end your turn."
               : `${msg.player}'s catnasta took the litterbox pile.`,
             { title: "Litterbox taken" },
           );
