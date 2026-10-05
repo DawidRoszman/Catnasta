@@ -132,7 +132,7 @@
 // uuid ships as ESM only, which Jest's CommonJS runtime can't load.
 jest.mock("uuid", () => ({ v4: () => require("crypto").randomUUID() }));
 
-import { getMinimumFirstMeldPoints, lowestCardToDiscard } from "../game";
+import { calculatePlayerScore, getMinimumFirstMeldPoints, lowestCardToDiscard } from "../game";
 import {
   DEFAULT_SETTINGS,
   discardCardDispatch,
@@ -809,5 +809,71 @@ describe("table codes", () => {
     for (let i = 0; i < 500; i++) {
       expect(newTableCode()).toMatch(/^[A-HJKMNP-Z2-9]{6}$/);
     }
+  });
+});
+
+describe("minus points for cards left in hand", () => {
+  const joker = (id: string) => ({ id, rank: "JOKER" as const, suit: Suit.HEART });
+
+  test.each([
+    ["a Joker", [joker("j1")], -50],
+    ["an Ace", [card(Rank.ACE)], -20],
+    ["a Two", [card(Rank.TWO)], -20],
+    ["a King", [card(Rank.KING)], -10],
+    ["an Eight", [card(Rank.EIGHT)], -10],
+    ["a Seven", [card(Rank.SEVEN)], -5],
+    ["a Four", [card(Rank.FOUR)], -5],
+    ["a black Three", [card(Rank.THREE, Suit.CLUB)], -5],
+  ])("%s in hand costs its value", (_, hand, points) => {
+    expect(calculatePlayerScore(player("ann", { hand })).points).toBe(points);
+  });
+
+  test("with a catnasta, the hand is taken off the melds and bonuses", () => {
+    const hand = [joker("j1"), card(Rank.ACE), card(Rank.KING), card(Rank.FIVE)];
+    const score = calculatePlayerScore(player("ann", { melds: [cards(7, Rank.QUEEN)], hand }));
+    // 70 melded + 500 natural catnasta - (50 + 20 + 10 + 5) in hand.
+    expect(score.points).toBe(70 + 500 - 85);
+  });
+
+  test("without a catnasta, the hand counts against you on top of the melds", () => {
+    const hand = [card(Rank.ACE), card(Rank.SIX)];
+    const score = calculatePlayerScore(
+      player("ann", { melds: [cards(3, Rank.KING)], hand, red_threes: [card(Rank.THREE, Suit.HEART)] }),
+    );
+    // -30 melded - 25 in hand + 100 for the red three.
+    expect(score.points).toBe(-30 - 25 + 100);
+  });
+
+  test("when a player goes out, the other player's hand is taken off their round", async () => {
+    const last = card(Rank.FOUR);
+    const bobHand = [joker("j2"), card(Rank.ACE), card(Rank.NINE, Suit.CLUB), card(Rank.SIX)];
+    const { broker, gameState, ofType } = setup({
+      hasDrawn: true,
+      player1: player("ann", { melds: [cards(7, Rank.KING)], hand: [last] }),
+      player2: player("bob", { total: 400, melds: [cards(7, Rank.JACK, Suit.CLUB)], hand: bobHand }),
+    });
+    await discardCardDispatch(broker, gameState, msg("ann", { cardId: last.id }), {} as any, games);
+
+    const results = ofType("ROUND_END")[0].msg.results;
+    // Bob: 70 melded + 500 natural catnasta - (50 + 20 + 10 + 5) still in hand.
+    expect(results[1]).toEqual({ name: "bob", points: 485, total: 885 });
+    // Ann went out: 70 + 500 + 100, nothing in hand.
+    expect(results[0].points).toBe(670);
+  });
+
+  test("when the stock runs out, both players lose what they still hold", async () => {
+    const { broker, gameState, ofType } = setup({
+      player1: player("ann", { hand: [card(Rank.QUEEN), card(Rank.SEVEN), card(Rank.ACE)] }),
+      player2: player("bob", { hand: [card(Rank.TWO), card(Rank.FIVE)] }),
+      stock: [card(Rank.FOUR)],
+    });
+    drawCardDispatch(broker, gameState, msg("ann"));
+    const queen = gameState.player1.hand.find(({ rank }) => rank === Rank.QUEEN)!;
+    await discardCardDispatch(broker, gameState, msg("ann", { cardId: queen.id }), {} as any, games);
+
+    const [ann, bob] = ofType("ROUND_END")[0].msg.results;
+    // Ann keeps the Seven, the Ace and the Four she drew; Bob his Two and Five.
+    expect(ann.points).toBe(-(5 + 20 + 5));
+    expect(bob.points).toBe(-(20 + 5));
   });
 });
