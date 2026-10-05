@@ -12,6 +12,7 @@ import {
   games,
   parseTableSettings,
   meldCardDispatch,
+  newTableCode,
   pickUpPileDispatch,
   publishGameList,
   resumeGame,
@@ -629,7 +630,7 @@ app.post("/create_game", async (req: Request, res: Response) => {
   if ("error" in settings) {
     return res.send({ msg: settings.error });
   }
-  const id = Math.random().toString(36).substring(2, 8).toUpperCase();
+  const id = newTableCode();
   const game: Game = {
     gameId: id,
     private: req.body.private === true,

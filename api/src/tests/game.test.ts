@@ -139,6 +139,7 @@ import {
   drawCardDispatch,
   games,
   meldCardDispatch,
+  newTableCode,
   parseTableSettings,
   pickUpPileDispatch,
   resumeGame,
@@ -198,9 +199,9 @@ const msg = (name: string, extra: object = {}) => ({ id: "T1", name, ...extra })
 
 describe("first meld minimum", () => {
   test.each([
-    [-10, 15],
-    [0, 50],
-    [1495, 50],
+    [-500, 30],
+    [0, 30],
+    [1495, 30],
     [1500, 90],
     [2995, 90],
     [3000, 120],
@@ -223,6 +224,110 @@ describe("first meld minimum", () => {
     meldCardDispatch(broker, gameState, msg("ann", { melds: [kings.map((k) => k.id)] }));
     expect(gameState.player1.melds).toHaveLength(1);
   });
+
+  test("three kings (30 points) are enough to open a game", () => {
+    const kings = cards(3, Rank.KING);
+    const { broker, gameState } = setup({
+      hasDrawn: true,
+      player1: player("ann", { hand: [...kings, card(Rank.FOUR)] }),
+    });
+    meldCardDispatch(broker, gameState, msg("ann", { melds: [kings.map((k) => k.id)] }));
+    expect(gameState.player1.melds).toEqual([kings]);
+  });
+});
+
+describe("one meld per rank", () => {
+  test("melding a rank already on the table adds the cards to that meld", () => {
+    const queens = cards(3, Rank.QUEEN);
+    const more = cards(3, Rank.QUEEN, Suit.CLUB);
+    const { broker, gameState, ofType } = setup({
+      hasDrawn: true,
+      player1: player("ann", { melds: [queens], hand: [...more, card(Rank.FOUR)] }),
+    });
+    const expected = [...queens, ...more];
+    meldCardDispatch(broker, gameState, msg("ann", { melds: [more.map(({ id }) => id)] }));
+    expect(gameState.player1.melds).toEqual([expected]);
+    expect(gameState.player1.hand).toHaveLength(1);
+    expect(ofType("MELDED_CARDS").at(-1)!.msg.melds).toHaveLength(1);
+  });
+
+  test("two sets of the same rank laid down together become one meld", () => {
+    const first = cards(3, Rank.KING);
+    const second = cards(3, Rank.KING, Suit.DIAMOND);
+    const { broker, gameState } = setup({
+      hasDrawn: true,
+      player1: player("ann", { hand: [...first, ...second, card(Rank.FOUR)] }),
+    });
+    meldCardDispatch(
+      broker,
+      gameState,
+      msg("ann", { melds: [first.map(({ id }) => id), second.map(({ id }) => id)] }),
+    );
+    expect(gameState.player1.melds).toHaveLength(1);
+    expect(gameState.player1.melds[0]).toHaveLength(6);
+  });
+
+  test("joining is refused if wild cards would no longer be outnumbered", () => {
+    // Fine on their own (two naturals, three wilds), but together it's four of each.
+    const meld = [...cards(2, Rank.JACK), card(Rank.TWO)];
+    const wildHeavy = [
+      ...cards(2, Rank.JACK, Suit.CLUB),
+      card(Rank.TWO),
+      card(Rank.TWO, Suit.CLUB),
+      { id: "jk", rank: "JOKER" as const, suit: Suit.HEART },
+    ];
+    const { broker, gameState, ofType } = setup({
+      hasDrawn: true,
+      player1: player("ann", { melds: [meld], hand: [...wildHeavy, card(Rank.FOUR)] }),
+    });
+    meldCardDispatch(broker, gameState, msg("ann", { melds: [wildHeavy.map(({ id }) => id)] }));
+    expect(gameState.player1.melds).toEqual([meld]);
+    expect(ofType("MELD_ERROR")[0].msg.message).toMatch(/more natural cards than wild cards/);
+  });
+});
+
+describe("taking the discard pile", () => {
+  test("melds the top card with two naturals from the hand and takes the rest", () => {
+    const nines = cards(2, Rank.NINE);
+    const top = card(Rank.NINE);
+    const rest = cards(3, Rank.SEVEN);
+    const { broker, gameState, ofType } = setup({
+      player1: player("ann", { melds: [cards(3, Rank.ACE)], hand: [...nines, card(Rank.FOUR)] }),
+      discardPile: [...rest, top],
+    });
+    pickUpPileDispatch(broker, gameState, msg("ann"));
+
+    expect(gameState.player1.melds[1]).toEqual([top, ...nines]);
+    expect(gameState.player1.hand.map(({ rank }) => rank).sort()).toEqual(["4", "7", "7", "7"]);
+    expect(gameState.discardPile).toEqual([]);
+    expect(ofType("MELDED_CARDS").at(-1)!.msg.melds[1]).toHaveLength(3);
+  });
+
+  test("joins a meld of the same rank the player already has", () => {
+    const nines = cards(2, Rank.NINE);
+    const meld = cards(3, Rank.NINE, Suit.CLUB);
+    const { broker, gameState } = setup({
+      player1: player("ann", { melds: [meld], hand: [...nines, card(Rank.FOUR)] }),
+      discardPile: [card(Rank.NINE)],
+    });
+    pickUpPileDispatch(broker, gameState, msg("ann"));
+    expect(gameState.player1.melds).toHaveLength(1);
+    expect(gameState.player1.melds[0]).toHaveLength(6);
+    expect(gameState.player1.hand).toHaveLength(1);
+  });
+
+  test("is refused when nothing would be left to discard", () => {
+    const nines = cards(2, Rank.NINE);
+    const { broker, gameState, ofType } = setup({
+      player1: player("ann", { melds: [cards(3, Rank.ACE)], hand: nines }),
+      discardPile: [card(Rank.NINE)],
+    });
+    pickUpPileDispatch(broker, gameState, msg("ann"));
+    expect(ofType("PICKUP_ERROR")).toHaveLength(1);
+    expect(gameState.player1.hand).toEqual(nines);
+    expect(gameState.discardPile).toHaveLength(1);
+    expect(gameState.hasDrawn).toBe(false);
+  });
 });
 
 describe("drawing after taking the pile", () => {
@@ -235,7 +340,7 @@ describe("drawing after taking the pile", () => {
       discardPile: [...cards(10, Rank.SEVEN), card(Rank.NINE)],
     });
     pickUpPileDispatch(broker, gameState, msg("ann"));
-    expect(gameState.player1.hand.length + 3).toBeGreaterThan(16);
+    expect(gameState.player1.hand.length).toBeGreaterThan(16);
 
     // A later turn: drawing from the stock must still work.
     gameState.hasDrawn = false;
@@ -328,11 +433,18 @@ describe("table settings", () => {
 
   test("fill in defaults and reject values out of range", () => {
     expect(parseTableSettings({})).toEqual(DEFAULT_SETTINGS);
-    expect(parseTableSettings({ winningScore: 1000, roundBreakSeconds: 5, turnSeconds: 60 })).toEqual({
+    expect(
+      parseTableSettings({ winningScore: 1000, roundBreakSeconds: 5, turnSeconds: 60, handSize: 11 }),
+    ).toEqual({
       winningScore: 1000,
       roundBreakSeconds: 5,
       turnSeconds: 60,
+      handSize: 11,
     });
+    expect(parseTableSettings({ handSize: 8 })).toEqual({
+      error: "Cards in hand must be a whole number from 9 to 17",
+    });
+    expect(parseTableSettings({ handSize: 18 })).toHaveProperty("error");
     expect(parseTableSettings({ turnSeconds: 0 })).toEqual(DEFAULT_SETTINGS);
     expect(parseTableSettings({ turnSeconds: 45 })).toEqual({
       error: "Time per turn must be off or 30, 60, 90 seconds",
@@ -344,10 +456,22 @@ describe("table settings", () => {
     expect(parseTableSettings({ winningScore: "5000" })).toHaveProperty("error");
   });
 
+  test.each([9, 17])("deals %i cards to each player when the table asks for it", (handSize) => {
+    const { broker, gameState } = setup({
+      gameStarted: false,
+      turn: "",
+      settings: { ...DEFAULT_SETTINGS, handSize },
+    });
+    startRoundDispatch(broker, gameState, msg("ann"), {} as any);
+    // Red threes are laid out and replaced, so the hand stays at the dealt size.
+    expect(gameState.player1.hand).toHaveLength(handSize);
+    expect(gameState.player2.hand).toHaveLength(handSize);
+  });
+
   test("a table's own target and break decide when rounds and the game end", async () => {
     const last = card(Rank.FOUR);
     const { broker, gameState, ofType } = setup({
-      settings: { winningScore: 1000, roundBreakSeconds: 3, turnSeconds: null },
+      settings: { ...DEFAULT_SETTINGS, winningScore: 1000, roundBreakSeconds: 3 },
       hasDrawn: true,
       player1: player("ann", { total: 200, melds: [cards(7, Rank.KING)], hand: [last] }),
     });
@@ -514,5 +638,14 @@ describe("resuming after a restart", () => {
     await discardCardDispatch(broker, gameState, msg("ann", { cardId: last.id }), {} as any, games);
     expect(changed).toHaveBeenCalledWith("T1");
     setGameChangeListener(() => {});
+  });
+});
+
+describe("table codes", () => {
+  test("never use characters that look alike", () => {
+    games.splice(0, games.length);
+    for (let i = 0; i < 500; i++) {
+      expect(newTableCode()).toMatch(/^[A-HJKMNP-Z2-9]{6}$/);
+    }
   });
 });

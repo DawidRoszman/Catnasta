@@ -66,7 +66,8 @@ export function DetailedRulesModal({ open, onClose }: { open: boolean; onClose: 
         <Section title="The deal">
           <p>
             Two players share two standard decks plus four Jokers — 108 cards. Each player is dealt{" "}
-            <B>15 cards</B>; the rest form the face-down <B>stock</B>.
+            <B>15 cards</B> (the host can choose anywhere from 9 to 17); the rest form the face-down{" "}
+            <B>stock</B>.
           </p>
           <p>
             One card is turned up to start the <B>discard pile</B>. If it&apos;s a wild card or a red
@@ -110,6 +111,10 @@ export function DetailedRulesModal({ open, onClose }: { open: boolean; onClose: 
           <ul className="list-disc space-y-1.5 pl-5">
             <li>
               A meld is <B>three or more cards of the same rank</B>. Suits don&apos;t matter.
+            </li>
+            <li>
+              You can have only <B>one meld of each rank</B>. Laying down cards of a rank you already
+              have on the table adds them to that meld.
             </li>
             <li>
               A meld needs at least <B>two natural cards</B> and may hold at most <B>three wild
@@ -160,6 +165,11 @@ export function DetailedRulesModal({ open, onClose }: { open: boolean; onClose: 
             <li>the top card isn&apos;t a black three, a Two or a Joker, and</li>
             <li>you hold at least two natural cards of the same rank as the top card.</li>
           </ul>
+          <p>
+            The top card and two of those naturals are <B>melded at once</B> — joining your meld of
+            that rank if you have one — and the rest of the pile goes into your hand. You must still
+            have a card left to discard.
+          </p>
         </Section>
 
         <Section title="Rounds and winning">

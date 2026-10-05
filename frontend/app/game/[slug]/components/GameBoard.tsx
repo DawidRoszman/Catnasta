@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import client from "@/app/lib/socket";
 import { useUserContext } from "@/app/components/UserContext";
 import { useConfirm, useToast } from "@/app/components/ui/Feedback";
-import { PlayingCard, isBlackThree, isWild, sortHand } from "@/app/lib/cards/draw";
+import { PlayingCard, pileBlocker, sortHand } from "@/app/lib/cards/draw";
 import { useGameContext, useGameDispatch } from "./GameContext";
 import { Type } from "./gameReducer";
 import type { ClickTarget, LayoutInput } from "./three/tableLayout";
@@ -46,6 +46,15 @@ export default function GameBoard() {
           : gameState.canDraw
             ? "draw"
             : "play";
+
+  const pileProblem = gameState
+    ? pileBlocker(
+        gameState.discardPileTopCard,
+        gameState.discardPileCount,
+        gameState.player1.hand,
+        gameState.player1.melds.length > 0,
+      )
+    : null;
 
   const handById = useMemo(() => {
     const map = new Map<string, PlayingCard>();
@@ -127,17 +136,8 @@ export default function GameBoard() {
       }
       return;
     }
-    const top = gameState.discardPileTopCard;
-    if (top === null) {
-      toast("The discard pile is empty.");
-      return;
-    }
-    if (isBlackThree(top) || isWild(top)) {
-      toast("A black three or wild card on top blocks the discard pile.", { tone: "error" });
-      return;
-    }
-    if (gameState.player1.melds.length === 0) {
-      toast("Make your first meld before taking the discard pile.", { tone: "error" });
+    if (pileProblem !== null) {
+      toast(pileProblem, { tone: "error" });
       return;
     }
     send("PICKUP_DISCARD_PILE");
@@ -292,7 +292,7 @@ export default function GameBoard() {
           layout={layout}
           stockCount={Math.max(gameState.stockCardCount, 0)}
           canDraw={phase === "draw"}
-          canPickUp={phase === "draw" && gameState.discardPileTopCard !== null}
+          canPickUp={phase === "draw" && pileProblem === null}
           onCardClick={handleCardClick}
           onStockClick={drawFromStock}
           onDiscardClick={pickUpDiscardPile}
@@ -305,6 +305,7 @@ export default function GameBoard() {
         stagedCount={liveStaged.length}
         onDraw={drawFromStock}
         onPickUp={pickUpDiscardPile}
+        pileProblem={pileProblem}
         onStageMeld={stageMeld}
         onConfirmMelds={confirmMelds}
         onDiscard={discard}

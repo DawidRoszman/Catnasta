@@ -12,7 +12,7 @@ Catnasta retains the fundamental principles of Canasta, but with a charming alte
 
 Playing Canasta usually requires two sets of cards holding 52 cards each and four Jokers. That checks out at 108 cards in the game. There are 13 ranks – from Two to Ten, Jack, Queen, King, and Ace. They all appear in the four suits Clubs, Spades, Hearts, and Diamonds.
 
-At the beginning of the round each player recieves 15 cards. The leftover cards become the stock. One card is revealed from the stock pile and is now the base of the discard pile. If a wild card or a bonus card appears here, another card is drawn and discarded until this is not the case anymore.
+At the beginning of the round each player recieves 15 cards (the host can pick anywhere from 9 to 17 when dealing the table). The leftover cards become the stock. One card is revealed from the stock pile and is now the base of the discard pile. If a wild card or a bonus card appears here, another card is drawn and discarded until this is not the case anymore.
 
 ### Natural Cards
 
@@ -48,6 +48,7 @@ In Canasta, the four regular Jokers and all Twos are wild cards. They help with 
 - There is no limit to the number of cards in a meld.
 - A maximum of three wild cards can be in a meld.
 - Wild cards must not outnumber natural cards.
+- Each player has at most one meld per rank; melding more cards of a rank already on the table adds them to that meld.
 - Once melded, wild cards cannot be swapped or picked up again.
 - **You cannot add cards to your opponent’s melds**.
 - Black Threes can be melded only before going out.
@@ -58,8 +59,7 @@ Each round, player's initial meld **must score a minimum number of points**. Thi
 
 | Current Score  | Min Score for First Meld |
 | -------------- | ------------------------ |
-| Below 0        | 15                       |
-| 0 to 1500      | 50                       |
+| Below 1500     | 30                       |
 | 1500 to 3000   | 90                       |
 | 3000 and above | 120                      |
 
@@ -74,7 +74,7 @@ Each round, player's initial meld **must score a minimum number of points**. Thi
 The fight for the discard pile is one of Canasta’s key elements. Players can strategically prevent opponents from picking up the discard pile. The taller the pile is, the more suspenseful the fight. If you get to pick up the pile, you can feel victorious: You gained many cards and, potentially, complete canastas. The opportunity to pick up a tall discard pile can decide the game. Picking up the discard pile is also called buying.
 
 - You can pick up the discard pile only after you completed the first meld
-- When buying the discard pile, you must immediately play its top card by melding it with fitting hand cards.
+- When buying the discard pile, its top card is immediately melded with two natural cards of the same rank from your hand (joining your meld of that rank if you have one). You must still have a card left to discard.
 - If the top card of the discard pile is a black Three or a wild card, you cannot pick up the discard pile. It is blocked.
 
 ### Going out - Ending a Round of Canasta

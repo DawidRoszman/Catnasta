@@ -24,13 +24,17 @@ name: Join a table and play a turn on the 3D board
       - runFlow: ../subflows/join-opponent-table.yaml
 
 - assertVisible: "Your turn — draw from the stock or take the discard pile"
+# No melds yet, so the discard pile can't be taken and doesn't light up.
+- assertVisible:
+    id: "take-pile"
+    enabled: false
 - takeScreenshot: play-turn-1-draw
 - assertVisible:
     id: "round-number"
 - assertVisible: "Round 1"
 - tapOn: "Draw"
-# Nothing banked yet, so the first melds need the standard 50 points.
-- assertVisible: "Your first melds need 50 points — or just discard"
+# Nothing banked yet, so the first melds need the opening 30 points.
+- assertVisible: "Your first melds need 30 points — or just discard"
 
 # Click a card in the middle of the fanned hand on the 3D table.
 - tapOn:

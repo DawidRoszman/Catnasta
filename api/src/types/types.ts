@@ -43,6 +43,8 @@ export interface TableSettings {
   roundBreakSeconds: number;
   /** Time each player has for a turn, or null for no limit. */
   turnSeconds: number | null;
+  /** Cards dealt to each player at the start of a round. */
+  handSize: number;
 }
 
 export interface GameState {

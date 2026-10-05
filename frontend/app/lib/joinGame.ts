@@ -27,6 +27,8 @@ export type TableOptions = {
   roundBreakSeconds?: number;
   /** Seconds per turn; 0 for no limit. */
   turnSeconds?: number;
+  /** Cards dealt to each player, from 9 to 17. */
+  handSize?: number;
 };
 
 /** Deals a table; options left out use the server's defaults. */

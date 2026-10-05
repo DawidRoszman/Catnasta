@@ -2,6 +2,9 @@ import { Card, GameState, Joker, Player } from "./types/types";
 import { getStartingCards, deck, getCardPoints } from "./cards";
 const MIN_CARDS_FOR_MELD = 3;
 
+/** Cards dealt to each player when the table doesn't say otherwise. */
+export const DEFAULT_HAND_SIZE = 15;
+
 export const startRound = (gameState: GameState): void => {
   for (const player of [gameState.player1, gameState.player2]) {
     player.melds = [];
@@ -9,7 +12,7 @@ export const startRound = (gameState: GameState): void => {
     player.score = 0;
   }
   const startingCards = getStartingCards(deck);
-  dealCards(gameState, startingCards);
+  dealCards(gameState, startingCards, gameState.settings?.handSize ?? DEFAULT_HAND_SIZE);
 
   gameState.discardPile = [];
 
@@ -47,11 +50,12 @@ export const checkForRedThreeInPlayerHand = (player: Player) => {
 export const dealCards = (
   gameState: GameState,
   startingCards: (Card | Joker)[],
+  handSize = DEFAULT_HAND_SIZE,
 ) => {
-  gameState.player1.hand = startingCards.slice(0, 15);
-  gameState.player2.hand = startingCards.slice(15, 30);
+  gameState.player1.hand = startingCards.slice(0, handSize);
+  gameState.player2.hand = startingCards.slice(handSize, handSize * 2);
 
-  gameState.stock = startingCards.slice(30);
+  gameState.stock = startingCards.slice(handSize * 2);
 };
 
 export const revealFirstCard = (gameState: GameState) => {
@@ -148,6 +152,19 @@ export const meldCards = (
     return { msg: "Black three cannot be melded" };
   }
 
+  // Only one meld per rank: more cards of a rank already on the table join that meld.
+  const existing = playerMelds.find((meld) => meld.some((card) => card.rank === rank));
+  if (existing) {
+    const combined = [...existing, ...cardsToMeld];
+    const wilds = combined.filter((card) => card.rank === "2" || card.rank === "JOKER").length;
+    if (wilds >= combined.length - wilds) {
+      return { msg: "You have to have more natural cards than wild cards in meld" };
+    }
+    playMeld(cardsToMeld, playerHand, []);
+    existing.push(...cardsToMeld);
+    return;
+  }
+
   playMeld(cardsToMeld, playerHand, playerMelds);
 };
 
@@ -180,10 +197,8 @@ export const getMeldPoints = (meld: (Card | Joker)[]): number => {
 };
 
 export const getMinimumFirstMeldPoints = (score: number): number => {
-  if (score < 0) {
-    return 15;
-  } else if (score < 1500) {
-    return 50;
+  if (score < 1500) {
+    return 30;
   } else if (score < 3000) {
     return 90;
   } else {
@@ -246,14 +261,30 @@ export const pickUpPile = (
     };
   }
 
-  // Get the top card
   const topCard = discardPile[discardPile.length - 1];
-  
-  // Add all cards from discard pile to player's hand
-  player.hand.push(...discardPile);
-  
-  // Clear the discard pile
+  const naturals = player.hand.filter((card) => card.rank === topCard.rank).slice(0, 2);
+  // The top card and the two naturals it was taken with go straight to the table,
+  // so something has to be left in hand to discard.
+  if (player.hand.length - naturals.length + discardPile.length - 1 === 0) {
+    return {
+      success: false,
+      message: "You'd have no card left to discard after melding the top card.",
+    };
+  }
+
+  player.hand = player.hand.filter((card) => !naturals.includes(card));
+  player.hand.push(...discardPile.slice(0, -1));
   discardPile.length = 0;
+
+  const meld = [topCard, ...naturals];
+  const existing = player.melds.find((cards) =>
+    cards.some((card) => card.rank === topCard.rank),
+  );
+  if (existing) {
+    existing.push(...meld);
+  } else {
+    player.melds.push(meld);
+  }
 
   return { success: true };
 };

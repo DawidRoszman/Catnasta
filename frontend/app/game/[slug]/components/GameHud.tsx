@@ -34,6 +34,8 @@ type GameHudProps = {
   stagedCount: number;
   onDraw: () => void;
   onPickUp: () => void;
+  /** Why the discard pile can't be taken, or null when it can. */
+  pileProblem: string | null;
   onStageMeld: () => void;
   onConfirmMelds: () => void;
   onDiscard: () => void;
@@ -244,6 +246,7 @@ function ActionDock({
   stagedCount,
   onDraw,
   onPickUp,
+  pileProblem,
   onStageMeld,
   onConfirmMelds,
   onDiscard,
@@ -281,9 +284,12 @@ function ActionDock({
               <Button onClick={onDraw}>
                 <Layers className="h-4 w-4" />Draw
               </Button>
-              <Button variant="secondary" onClick={onPickUp} disabled={game.gameState.discardPileTopCard === null}>
-                Take pile
-              </Button>
+              {/* A disabled button shows no tooltip, so the reason sits on a wrapper. */}
+              <span title={pileProblem ?? undefined}>
+                <Button variant="secondary" onClick={onPickUp} disabled={pileProblem !== null} id="take-pile">
+                  Take pile
+                </Button>
+              </span>
             </>
           )}
           {phase === "play" && (
@@ -552,6 +558,7 @@ export function RulesModal({ open, onClose }: { open: boolean; onClose: () => vo
           <h3 className="mb-2 font-semibold text-cream">Good to know</h3>
           <ul className="list-disc space-y-1.5 pl-5">
             <li>Twos and Jokers are wild — at most three per meld, never more than the naturals.</li>
+            <li>One meld per rank: more cards of a rank you&apos;ve melded join that meld.</li>
             <li>
               Your first melds each round need{" "}
               {FIRST_MELD_MINIMUMS.map(({ points }) => points).join(" / ")} points, depending on
@@ -563,6 +570,10 @@ export function RulesModal({ open, onClose }: { open: boolean; onClose: () => vo
               discards your lowest card.
             </li>
             <li>A meld of seven or more cards is a <b className="text-brass">Catnasta</b>.</li>
+            <li>
+              To take the discard pile you need two naturals matching its top card; those three cards
+              are melded straight away.
+            </li>
             <li>Red threes score 100 bonus points; a black three on the pile blocks it.</li>
             <li>
               Press <kbd className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-xs">Esc</kbd> to

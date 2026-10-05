@@ -6,7 +6,8 @@ name: Deal a table with custom options
 - openLink: ${BASE_URL}
 - runFlow: ../subflows/register.yaml
 
-# A public table to 1,000 points with a short break shows its target in the lobby.
+# A public table to 1,000 points with a short break and 13-card hands shows its
+# options in the lobby.
 - tapOn:
     id: "create-game"
 - assertVisible: "Table options"
@@ -14,6 +15,12 @@ name: Deal a table with custom options
 - tapOn: "1,000"
 - tapOn: "5s"
 - tapOn: "60s"
+- assertVisible: "15 cards"
+- tapOn:
+    id: "hand-size-less"
+- tapOn:
+    id: "hand-size-less"
+- assertVisible: "13 cards"
 - tapOn: "Deal table"
 - extendedWaitUntil:
     visible:
@@ -26,6 +33,7 @@ name: Deal a table with custom options
 - assertVisible: ${maestro.copiedText}
 - assertVisible: "First to 1,000"
 - assertVisible: "60s turns"
+- assertVisible: "13 cards each"
 
 # The same dialog deals private tables, which stay out of the lobby.
 - tapOn:

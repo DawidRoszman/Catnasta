@@ -15,6 +15,8 @@ export interface Game {
   winning_score?: number;
   /** Seconds per turn, or null when turns are untimed. */
   turn_seconds?: number | null;
+  /** Cards dealt to each player. */
+  hand_size?: number;
 }
 
 const Lobby = async () => {

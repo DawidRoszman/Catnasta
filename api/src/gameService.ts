@@ -1,4 +1,5 @@
 import {
+  DEFAULT_HAND_SIZE,
   addToMeld,
   calculatePlayerScore,
   discardCard,
@@ -33,6 +34,7 @@ export const DEFAULT_SETTINGS: TableSettings = {
   winningScore: Number(process.env.WINNING_SCORE ?? 5000),
   roundBreakSeconds: Number(process.env.ROUND_BREAK_SECONDS ?? 10),
   turnSeconds: null,
+  handSize: DEFAULT_HAND_SIZE,
 };
 
 /** The turn lengths a host can pick; 0 or null turns the clock off. */
@@ -44,6 +46,7 @@ const SETTING_LIMITS: Record<
 > = {
   winningScore: { min: 500, max: 20000, label: "Points to win" },
   roundBreakSeconds: { min: 3, max: 60, label: "Break between rounds" },
+  handSize: { min: 9, max: 17, label: "Cards in hand" },
 };
 
 /** Validates the settings a host asked for, filling in defaults for anything left out. */
@@ -72,12 +75,28 @@ export function parseTableSettings(
   return settings;
 }
 
+// No 0/O or 1/I/L, so a code read off a screen can't be typed wrong.
+export const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+
+/** A six-character table code that no live table is using. */
+export function newTableCode() {
+  let code: string;
+  do {
+    code = Array.from(
+      { length: 6 },
+      () => CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)],
+    ).join("");
+  } while (games.some((game) => game.gameId === code));
+  return code;
+}
+
 /** The lobby listing: every table except private ones. */
 export const gameListPayload = () =>
   games.filter((game) => !game.private).map((game) => ({
     id: game.gameId,
     winning_score: game.gameState.settings.winningScore,
     turn_seconds: game.gameState.settings.turnSeconds,
+    hand_size: game.gameState.settings.handSize ?? DEFAULT_HAND_SIZE,
     players_in_game:
       game.gameState.player1.name && game.gameState.player2.name ? 2 : 1,
   }));
@@ -793,6 +812,15 @@ export const pickUpPileDispatch = (
   }
   gameState.hasDrawn = true;
 
+  // The top card was melded with two naturals from the hand.
+  client.publish(
+    `catnasta/game/${msg.id}`,
+    JSON.stringify({
+      type: "MELDED_CARDS",
+      name: player.name,
+      melds: player.melds,
+    }),
+  );
   // Notify all players about the updated game state
   client.publish(
     `catnasta/game/${msg.id}/${msg.name}`,

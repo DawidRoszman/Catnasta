@@ -837,18 +837,46 @@ export function isBlackThree(card: PlayingCard) {
 
 /** First-meld thresholds by banked total, mirroring the server. */
 export const FIRST_MELD_MINIMUMS: { label: string; points: number }[] = [
-  { label: "Below 0", points: 15 },
-  { label: "0 – 1,495", points: 50 },
+  { label: "Below 1,500", points: 30 },
   { label: "1,500 – 2,995", points: 90 },
   { label: "3,000 or more", points: 120 },
 ];
 
 /** Points your first melds of a round must reach, given your banked total. */
 export function minimumFirstMeld(total: number) {
-  if (total < 0) return 15;
-  if (total < 1500) return 50;
+  if (total < 1500) return 30;
   if (total < 3000) return 90;
   return 120;
+}
+
+/**
+ * Why the discard pile can't be taken right now, or null when it can,
+ * mirroring the server: the top card is melded at once with two naturals
+ * from the hand, so the pile needs those naturals and a card left to discard.
+ */
+export function pileBlocker(
+  top: PlayingCard | null,
+  pileCount: number,
+  hand: PlayingCard[],
+  hasMelded: boolean,
+): string | null {
+  if (top === null) {
+    return "The discard pile is empty.";
+  }
+  if (isBlackThree(top) || isWild(top)) {
+    return "A black three or wild card on top blocks the discard pile.";
+  }
+  if (!hasMelded) {
+    return "Make your first meld before taking the discard pile.";
+  }
+  const pairs = hand.filter((card) => card.rank === top.rank).length;
+  if (pairs < 2) {
+    return `You need two natural ${top.rank === "A" ? "aces" : `${top.rank}s`} in hand to take the pile.`;
+  }
+  if (hand.length - 2 + pileCount - 1 === 0) {
+    return "You'd have no card left to discard after melding the top card.";
+  }
+  return null;
 }
 
 /** Sorts a hand by rank (aces high) then suit, with wild cards at the end. */

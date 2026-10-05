@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from "react";
-import { Lock } from "lucide-react";
+import { Lock, Minus, Plus } from "lucide-react";
 import { Button } from "./ui/Button";
 import { Modal } from "./ui/Modal";
 import { cn } from "../lib/cn";
@@ -10,11 +10,13 @@ const WINNING_SCORES = [1000, 2500, 5000, 10000];
 const ROUND_BREAKS = [5, 10, 20, 30];
 /** 0 means turns are untimed. */
 const TURN_LIMITS = [0, 30, 60, 90];
+const HAND_SIZE = { min: 9, max: 17 };
 export const DEFAULT_TABLE_OPTIONS = {
   private: false,
   winningScore: 5000,
   roundBreakSeconds: 10,
   turnSeconds: 0,
+  handSize: 15,
 };
 
 function Choice<T extends number>({
@@ -63,7 +65,68 @@ function Choice<T extends number>({
   );
 }
 
-/** Lets the host pick privacy, target score and round break before dealing a table. */
+/** A number picked with − and + buttons, for ranges too long to show as choices. */
+function Stepper({
+  label,
+  hint,
+  id,
+  min,
+  max,
+  value,
+  unit,
+  onChange,
+}: {
+  label: string;
+  hint: string;
+  id: string;
+  min: number;
+  max: number;
+  value: number;
+  unit: string;
+  onChange: (value: number) => void;
+}) {
+  const stepButton =
+    "grid h-10 w-10 place-items-center rounded-xl bg-felt-950/60 text-cream ring-1 ring-inset ring-line transition-colors hover:ring-line-strong disabled:cursor-not-allowed disabled:opacity-40";
+  return (
+    <div>
+      <p id={`${id}-label`} className="text-sm font-semibold text-cream-dim">
+        {label}
+      </p>
+      <div className="mt-2 flex items-center gap-2" role="group" aria-labelledby={`${id}-label`}>
+        <button
+          type="button"
+          className={stepButton}
+          onClick={() => onChange(value - 1)}
+          disabled={value <= min}
+          aria-label={`Fewer ${unit}`}
+          id={`${id}-less`}
+        >
+          <Minus className="h-4 w-4" aria-hidden />
+        </button>
+        <output
+          id={id}
+          aria-live="polite"
+          className="flex h-10 flex-1 items-center justify-center rounded-xl bg-brass/15 text-sm font-semibold tabular-nums text-cream ring-1 ring-inset ring-brass/60"
+        >
+          {value} {unit}
+        </output>
+        <button
+          type="button"
+          className={stepButton}
+          onClick={() => onChange(value + 1)}
+          disabled={value >= max}
+          aria-label={`More ${unit}`}
+          id={`${id}-more`}
+        >
+          <Plus className="h-4 w-4" aria-hidden />
+        </button>
+      </div>
+      <p className="mt-1.5 text-xs text-muted">{hint}</p>
+    </div>
+  );
+}
+
+/** Lets the host pick privacy, target score, round break, hand size and turn time before dealing a table. */
 export function TableOptionsDialog({
   open,
   onClose,
@@ -126,6 +189,16 @@ export function TableOptionsDialog({
           value={options.roundBreakSeconds}
           format={(seconds) => `${seconds}s`}
           onChange={(seconds) => set("roundBreakSeconds", seconds)}
+        />
+        <Stepper
+          id="hand-size"
+          label="Cards in hand"
+          hint={`Dealt to each player at the start of every round, from ${HAND_SIZE.min} to ${HAND_SIZE.max}.`}
+          min={HAND_SIZE.min}
+          max={HAND_SIZE.max}
+          value={options.handSize}
+          unit="cards"
+          onChange={(cards) => set("handSize", cards)}
         />
         <Choice
           id="turn-limit"

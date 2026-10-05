@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Timer, Trophy, Users } from "lucide-react";
+import { Layers, Plus, Timer, Trophy, Users } from "lucide-react";
 import type { Game } from "../page";
 import client from "@/app/lib/socket";
 import { TableOptions, createGame, joinGame } from "@/app/lib/joinGame";
@@ -111,6 +111,12 @@ const GameList = ({ games }: { games: Game[] }) => {
                       {game.turn_seconds}s turns
                     </p>
                   ) : null}
+                  {game.hand_size !== undefined && game.hand_size !== 15 && (
+                    <p className="flex items-center gap-1.5">
+                      <Layers className="h-3.5 w-3.5" aria-hidden />
+                      {game.hand_size} cards each
+                    </p>
+                  )}
                 </div>
                 <div className="mt-4 flex items-center justify-between">
                   <Badge tone={full ? "coral" : "mint"}>
