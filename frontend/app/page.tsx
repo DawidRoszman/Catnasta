@@ -1,6 +1,7 @@
 import dynamic from "next/dynamic";
 import PlayPanel from "./components/PlayPanel";
 import Chat from "./components/Chat";
+import { DetailedRulesButton } from "./components/DetailedRules";
 import PlayingCard from "./components/PlayingCard";
 import { Rank, Suit } from "./game/[slug]/components/gameReducer";
 import type { PlayingCard as Card } from "./lib/cards/draw";
@@ -78,11 +79,14 @@ export default function Home() {
 
       <section id="rules" className="scroll-mt-20 border-t border-line/60 bg-felt-900/40">
         <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
-          <div className="max-w-2xl">
-            <h2 className="font-display text-4xl font-semibold tracking-tight">How a turn works</h2>
-            <p className="mt-3 text-cream-dim">
-              Two players, two decks, four Jokers. Each player starts with fifteen cards.
-            </p>
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div className="max-w-2xl">
+              <h2 className="font-display text-4xl font-semibold tracking-tight">How a turn works</h2>
+              <p className="mt-3 text-cream-dim">
+                Two players, two decks, four Jokers. Each player starts with fifteen cards.
+              </p>
+            </div>
+            <DetailedRulesButton />
           </div>
           <ol className="mt-10 grid gap-4 md:grid-cols-3">
             {STEPS.map((step, i) => (
