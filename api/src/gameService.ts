@@ -282,18 +282,29 @@ function publishTable(client: Broker, gameId: string, gameState: GameState) {
   }
 }
 
+/**
+ * Sends each player the scores. A player's round score so far is their melds
+ * minus the cards left in hand, so it would give away the opponent's hand:
+ * everyone gets only their own, plus both totals from finished rounds.
+ */
 function publishScores(client: Broker, gameId: string, gameState: GameState) {
-  const score = ({ name, score, total }: Player) => ({ name, score, total });
-  client.publish(
-    `catnasta/game/${gameId}`,
-    JSON.stringify({
-      type: "UPDATE_SCORE",
-      player1Score: score(gameState.player1),
-      player2Score: score(gameState.player2),
-      round: gameState.round,
-      winning_score: gameState.settings.winningScore,
-    }),
-  );
+  for (const viewer of [gameState.player1, gameState.player2]) {
+    const score = ({ name, score, total }: Player) => ({
+      name,
+      score: name === viewer.name ? score : null,
+      total,
+    });
+    client.publish(
+      `catnasta/game/${gameId}/${viewer.name}`,
+      JSON.stringify({
+        type: "UPDATE_SCORE",
+        player1Score: score(gameState.player1),
+        player2Score: score(gameState.player2),
+        round: gameState.round,
+        winning_score: gameState.settings.winningScore,
+      }),
+    );
+  }
 }
 
 function publishRoundEnd(client: Broker, gameId: string, result: RoundResult) {

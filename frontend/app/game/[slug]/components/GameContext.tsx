@@ -280,7 +280,8 @@ export function GameContextProvider({
             type: Type.UPDATE_SCORE,
             payload: {
               player1Score: me.score,
-              player2Score: them.score,
+              // The server keeps the opponent's round score to itself.
+              player2Score: them.score ?? 0,
               player1Total: me.total ?? 0,
               player2Total: them.total ?? 0,
               round: msg.round,

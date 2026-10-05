@@ -236,6 +236,27 @@ describe("first meld minimum", () => {
   });
 });
 
+describe("scores", () => {
+  test("each player sees only their own round score, which would reveal the other's hand", async () => {
+    const card4 = card(Rank.FOUR);
+    const { broker, gameState, published } = setup({
+      hasDrawn: true,
+      player1: player("ann", { total: 120, melds: [cards(3, Rank.KING)], hand: [card4, card(Rank.ACE)] }),
+      player2: player("bob", { total: 80, hand: cards(4, Rank.QUEEN) }),
+    });
+    await discardCardDispatch(broker, gameState, msg("ann", { cardId: card4.id }), {} as any, games);
+
+    const scores = published.filter(({ msg }) => msg.type === "UPDATE_SCORE");
+    expect(scores.map(({ topic }) => topic).sort()).toEqual(["catnasta/game/T1/ann", "catnasta/game/T1/bob"]);
+    const forAnn = scores.find(({ topic }) => topic.endsWith("/ann"))!.msg;
+    const forBob = scores.find(({ topic }) => topic.endsWith("/bob"))!.msg;
+    expect(forAnn.player1Score).toEqual({ name: "ann", score: gameState.player1.score, total: 120 });
+    expect(forAnn.player2Score).toEqual({ name: "bob", score: null, total: 80 });
+    expect(forBob.player1Score).toEqual({ name: "ann", score: null, total: 120 });
+    expect(forBob.player2Score.score).toBe(gameState.player2.score);
+  });
+});
+
 describe("one meld per rank", () => {
   test("melding a rank already on the table adds the cards to that meld", () => {
     const queens = cards(3, Rank.QUEEN);

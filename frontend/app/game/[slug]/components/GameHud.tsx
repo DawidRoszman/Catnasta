@@ -76,7 +76,6 @@ export default function GameHud(props: GameHudProps) {
             label="Opponent"
             name={player2.name || "Waiting…"}
             total={player2.total}
-            score={player2.score}
             cards={player2.name ? player2.num_of_cards_in_hand : undefined}
             active={phase === "opponent"}
             away={Boolean(player2.name) && !game.opponentPresence.online}
@@ -153,7 +152,8 @@ function PlayerPlate({
   label: string;
   name: string;
   total: number;
-  score: number;
+  /** This round's score so far; only shown for yourself, as it would reveal the opponent's hand. */
+  score?: number;
   cards?: number;
   active: boolean;
   away?: boolean;
@@ -194,10 +194,12 @@ function PlayerPlate({
         <p className="font-display text-lg font-semibold tabular-nums text-cream" title="Total from finished rounds">
           {total}
         </p>
-        <p className="text-[11px] tabular-nums text-muted" title="Score in this round so far">
-          {score >= 0 ? "+" : ""}
-          {score} this round
-        </p>
+        {score !== undefined && (
+          <p className="text-[11px] tabular-nums text-muted" title="Score in this round so far">
+            {score >= 0 ? "+" : ""}
+            {score} this round
+          </p>
+        )}
         {cards !== undefined && <p className="text-[11px] text-muted">{cards} cards</p>}
       </div>
     </div>
