@@ -19,7 +19,10 @@ test("join a table and play a turn on the 3D board", async ({ page }) => {
   // Nothing banked yet, so the first melds need the opening 30 points.
   await expect(page.getByText("Your first melds need 30 points — or just discard")).toBeVisible();
 
-  // Click a card in the middle of the fanned hand on the 3D table.
+  // Click a card in the middle of the fanned hand on the 3D table. Hover first, as a
+  // player would, so the card has lifted before the click lands on it.
+  await page.mouse.move(720, 720);
+  await page.waitForTimeout(400);
   await page.mouse.click(720, 720);
   await expect(page.getByText("1 selected")).toBeVisible();
   // Drop it on the litterbox to discard.

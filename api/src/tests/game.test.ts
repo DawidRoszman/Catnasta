@@ -528,7 +528,7 @@ describe("rounds", () => {
     // ann: 70 melded + 500 natural Catnasta + 100 for going out; bob: -30 in hand.
     const roundEnd = ofType("ROUND_END")[0].msg;
     expect(roundEnd.round).toBe(1);
-    expect(roundEnd.results).toEqual([
+    expect(roundEnd.results).toMatchObject([
       { name: "ann", points: 670, total: 870 },
       { name: "bob", points: -30, total: 70 },
     ]);
@@ -578,7 +578,7 @@ describe("rounds", () => {
     await discardCardDispatch(broker, gameState, msg("ann", { cardId: last.id }), mongo, games);
 
     expect(ofType("ROUND_END")).toHaveLength(0);
-    expect(ofType("GAME_END")[0].msg).toEqual({
+    expect(ofType("GAME_END")[0].msg).toMatchObject({
       type: "GAME_END",
       winner: { name: "ann", points: DEFAULT_SETTINGS.winningScore + 570 },
       loser: { name: "bob", points: 2970 },
@@ -856,8 +856,14 @@ describe("minus points for cards left in hand", () => {
 
     const results = ofType("ROUND_END")[0].msg.results;
     // Bob: 70 melded + 500 natural catnasta - (50 + 20 + 10 + 5) still in hand.
-    expect(results[1]).toEqual({ name: "bob", points: 485, total: 885 });
+    expect(results[1]).toEqual({
+      name: "bob",
+      points: 485,
+      total: 885,
+      breakdown: { melded: 70, catnastas: 500, redThrees: 0, wentOut: 0, hand: -85 },
+    });
     // Ann went out: 70 + 500 + 100, nothing in hand.
+    expect(results[0].breakdown).toEqual({ melded: 70, catnastas: 500, redThrees: 0, wentOut: 100, hand: 0 });
     expect(results[0].points).toBe(670);
   });
 
@@ -875,5 +881,60 @@ describe("minus points for cards left in hand", () => {
     // Ann keeps the Seven, the Ace and the Four she drew; Bob his Two and Five.
     expect(ann.points).toBe(-(5 + 20 + 5));
     expect(bob.points).toBe(-(20 + 5));
+  });
+});
+
+describe("score breakdown", () => {
+  test("adds up to the points, with and without a catnasta", () => {
+    const withCatnasta = calculatePlayerScore(
+      player("ann", {
+        melds: [[...cards(5, Rank.KING), card(Rank.TWO), card(Rank.TWO)]],
+        hand: [card(Rank.ACE)],
+        red_threes: [card(Rank.THREE, Suit.HEART)],
+      }),
+    );
+    expect(withCatnasta.breakdown).toEqual({ melded: 90, catnastas: 300, redThrees: 100, wentOut: 0, hand: -20 });
+    expect(withCatnasta.points).toBe(470);
+
+    const without = calculatePlayerScore(player("bob", { melds: [cards(3, Rank.NINE)], hand: [card(Rank.SIX)] }));
+    expect(without.breakdown).toEqual({ melded: -30, catnastas: 0, redThrees: 0, wentOut: 0, hand: -5 });
+    expect(without.points).toBe(-35);
+  });
+
+  test("the round that ends the game comes with the result, as no summary is shown for it", async () => {
+    const last = card(Rank.FOUR);
+    const { broker, gameState, ofType, mongo } = setup({
+      hasDrawn: true,
+      player1: player("ann", { total: 4800, melds: [cards(7, Rank.KING)], hand: [last] }),
+      player2: player("bob", { total: 100, hand: [card(Rank.QUEEN)] }),
+    });
+    await discardCardDispatch(broker, gameState, msg("ann", { cardId: last.id }), mongo, games);
+    const end = ofType("GAME_END")[0].msg;
+    expect(end.last_round.round).toBe(1);
+    expect(end.last_round.results[1]).toMatchObject({
+      name: "bob",
+      points: -10,
+      breakdown: { hand: -10 },
+    });
+    expect(ofType("ROUND_END")).toHaveLength(0);
+  });
+});
+
+describe("adding to a meld", () => {
+  test("is refused when it would leave nothing to discard", () => {
+    const kings = cards(2, Rank.KING);
+    const { broker, gameState, ofType } = setup({
+      hasDrawn: true,
+      player1: player("ann", { melds: [cards(3, Rank.KING, Suit.CLUB)], hand: kings }),
+    });
+    dispatchAddToMeld(broker, gameState, msg("ann", { meldId: 0, cardsIds: kings.map(({ id }) => id) }));
+    expect(gameState.player1.hand).toEqual(kings);
+    expect(gameState.player1.melds[0]).toHaveLength(3);
+    expect(ofType("MELD_ERROR")[0].msg.message).toBe("You need to have at least one card in hand after melding");
+
+    // Keeping one back is fine.
+    dispatchAddToMeld(broker, gameState, msg("ann", { meldId: 0, cardsIds: [kings[0].id] }));
+    expect(gameState.player1.melds[0]).toHaveLength(4);
+    expect(gameState.player1.hand).toHaveLength(1);
   });
 });

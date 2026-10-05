@@ -71,7 +71,13 @@ export interface GameState {
 }
 export interface RoundResult {
   round: number;
-  results: { name: string; points: number; total: number }[];
+  results: {
+    name: string;
+    points: number;
+    total: number;
+    /** Where the points came from; see ScoreBreakdown in game.ts. */
+    breakdown?: { melded: number; catnastas: number; redThrees: number; wentOut: number; hand: number };
+  }[];
   /** Epoch ms when the next round is dealt. */
   nextRoundAt: number;
 }

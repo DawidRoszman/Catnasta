@@ -22,7 +22,7 @@ import { Panel } from "@/app/components/ui/Panel";
 import { useToast } from "@/app/components/ui/Feedback";
 import Spinner from "@/app/components/ui/Spinner";
 import { cn } from "@/app/lib/cn";
-import type { Game } from "./gameReducer";
+import type { Game, RoundResult } from "./gameReducer";
 import { FIRST_MELD_MINIMUMS, minimumFirstMeld } from "@/app/lib/cards/draw";
 
 export type Phase = "loading" | "waiting" | "draw" | "play" | "opponent" | "round" | "over" | "closed";
@@ -419,6 +419,83 @@ function useSecondsUntil(epochMs: number | undefined) {
   return epochMs ? Math.max(0, Math.ceil((epochMs - now) / 1000)) : 0;
 }
 
+const BREAKDOWN_ROWS = [
+  ["melded", "Melded cards"],
+  ["catnastas", "Catnasta bonuses"],
+  ["redThrees", "Red threes"],
+  ["wentOut", "Going out"],
+  ["hand", "Cards left in hand"],
+] as const;
+
+const signed = (points: number) => `${points > 0 ? "+" : ""}${points}`;
+
+/**
+ * Each player's round, line by line: melds, bonuses, red threes, going out and
+ * the minus for cards still in hand, then the round's points and the total.
+ */
+function ScoreTable({ results, me, id }: { results: RoundResult["results"]; me: string; id: string }) {
+  const players = [...results].sort((a, b) => (a.name === me ? -1 : b.name === me ? 1 : 0));
+  const hasBreakdown = players.every((player) => player.breakdown);
+  const cell = "py-1.5 text-right font-mono tabular-nums";
+  return (
+    <table className="w-full text-left text-sm" id={id}>
+      <thead>
+        <tr className="text-xs uppercase tracking-wider text-muted">
+          <th className="pb-2 font-semibold" />
+          {players.map((player) => (
+            <th key={player.name} className="max-w-28 truncate pb-2 text-right font-semibold normal-case">
+              {player.name === me ? "You" : player.name}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {hasBreakdown &&
+          BREAKDOWN_ROWS.map(([key, label]) => (
+            <tr key={key} className="border-t border-line/40 text-cream-dim">
+              <td className="py-1.5">
+                {label}
+                {key === "melded" && players.some((player) => player.breakdown!.melded < 0) && (
+                  <span className="block text-[11px] text-muted">count against you without a catnasta</span>
+                )}
+              </td>
+              {players.map((player) => {
+                const points = player.breakdown![key];
+                return (
+                  <td
+                    key={player.name}
+                    className={cn(cell, points < 0 ? "text-coral" : points > 0 ? "text-cream" : "text-muted")}
+                  >
+                    {points === 0 ? "—" : signed(points)}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        <tr className="border-t border-line/80 font-semibold">
+          <td className="py-2 text-cream">This round</td>
+          {players.map((player) => (
+            <td key={player.name} className={cn(cell, "py-2", player.points < 0 ? "text-coral" : "text-mint")}>
+              {signed(player.points)}
+            </td>
+          ))}
+        </tr>
+        <tr className="border-t border-line/60">
+          <td className="py-2 text-cream">Total</td>
+          {players.map((player) => (
+            <td
+              key={player.name}
+              className="py-2 text-right font-display text-xl font-semibold tabular-nums text-brass"
+            >
+              {player.total}
+            </td>
+          ))}
+        </tr>
+      </tbody>
+    </table>
+  );
+}
+
 function RoundOverModal({ game, open }: { game: Game; open: boolean }) {
   const result = game.roundResult;
   const seconds = useSecondsUntil(open ? result?.nextRoundAt : undefined);
@@ -426,7 +503,6 @@ function RoundOverModal({ game, open }: { game: Game; open: boolean }) {
     return null;
   }
   const me = game.gameState.player1.name;
-  const rows = [...result.results].sort((a, b) => (a.name === me ? -1 : b.name === me ? 1 : 0));
   const target = game.gameState.winningScore;
   return (
     <Modal
@@ -441,44 +517,14 @@ function RoundOverModal({ game, open }: { game: Game; open: boolean }) {
         </p>
       }
     >
-      <table className="w-full text-left text-sm" id="round-results">
-        <thead>
-          <tr className="text-xs uppercase tracking-wider text-muted">
-            <th className="pb-2 font-semibold">Player</th>
-            <th className="pb-2 text-right font-semibold">This round</th>
-            <th className="pb-2 text-right font-semibold">Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.name} className="border-t border-line/60">
-              <td className="py-2 font-semibold text-cream">
-                {row.name}
-                {row.name === me && <span className="ml-1.5 text-xs font-normal text-muted">(you)</span>}
-              </td>
-              <td
-                className={cn(
-                  "py-2 text-right font-mono tabular-nums",
-                  row.points < 0 ? "text-coral" : "text-mint",
-                )}
-              >
-                {row.points >= 0 ? "+" : ""}
-                {row.points}
-              </td>
-              <td className="py-2 text-right font-display text-xl font-semibold tabular-nums text-brass">
-                {row.total}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <ScoreTable results={result.results} me={me} id="round-results" />
     </Modal>
   );
 }
 
 function GameOverModal({ game, open }: { game: Game; open: boolean }) {
   const router = useRouter();
-  const { winner, loser, reason, forfeitedBy } = game.gameResult;
+  const { winner, loser, reason, forfeitedBy, lastRound } = game.gameResult;
   const me = game.gameState.player1.name;
   const youWon = winner?.name === me;
   const forfeit = reason === "forfeit" || reason === "left";
@@ -531,6 +577,14 @@ function GameOverModal({ game, open }: { game: Game; open: boolean }) {
             ),
         )}
       </dl>
+      {lastRound && (
+        <div className="mt-5">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">
+            Round {lastRound.round}
+          </p>
+          <ScoreTable results={lastRound.results} me={me} id="last-round-results" />
+        </div>
+      )}
     </Modal>
   );
 }

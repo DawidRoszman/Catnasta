@@ -35,9 +35,18 @@ export type Joker = {
 
 export type EndReason = "score" | "forfeit" | "left";
 
+/** Where a player's round points came from; the parts are signed and add up to the points. */
+export type ScoreBreakdown = {
+  melded: number;
+  catnastas: number;
+  redThrees: number;
+  wentOut: number;
+  hand: number;
+};
+
 export type RoundResult = {
   round: number;
-  results: { name: string; points: number; total: number }[];
+  results: { name: string; points: number; total: number; breakdown?: ScoreBreakdown }[];
   /** Epoch ms when the next round is dealt. */
   nextRoundAt: number;
 };
@@ -55,6 +64,8 @@ export interface Game {
     } | null;
     reason: EndReason;
     forfeitedBy: string | null;
+    /** The round that decided the game, which gets no summary of its own. */
+    lastRound?: Pick<RoundResult, "round" | "results"> | null;
   };
   /** The opponent's connection, as reported by the server. */
   opponentPresence: {

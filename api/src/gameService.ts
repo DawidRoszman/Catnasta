@@ -336,7 +336,8 @@ async function endRound(
   const players = [gameState.player1, gameState.player2];
   const results = players.map((player) => {
     player.total += player.score;
-    return { name: player.name, points: player.score, total: player.total };
+    const { breakdown } = calculatePlayerScore(player);
+    return { name: player.name, points: player.score, total: player.total, breakdown };
   });
   gameState.turn = "";
   gameState.hasDrawn = false;
@@ -355,6 +356,8 @@ async function endRound(
         type: "GAME_END",
         winner: { name: winner.name, points: winner.total },
         loser: { name: loser.name, points: loser.total },
+        // The deciding round never gets its own summary, so it comes with the result.
+        last_round: { round: gameState.round, results },
       }),
     );
     removeGame(client, gameId);
@@ -819,6 +822,17 @@ export const dispatchAddToMeld = (
   const cards = currPlayer.hand.filter((card) =>
     msg.cardsIds.includes(card.id),
   );
+  // Something has to stay in hand for the discard that ends the turn.
+  if (cards.length > 0 && currPlayer.hand.length - cards.length === 0) {
+    client.publish(
+      `catnasta/game/${msg.id}/${msg.name}`,
+      JSON.stringify({
+        type: "MELD_ERROR",
+        message: "You need to have at least one card in hand after melding",
+      }),
+    );
+    return;
+  }
   const error = addToMeld(currPlayer, msg.meldId, cards);
   if (error !== undefined) {
     console.log(error);

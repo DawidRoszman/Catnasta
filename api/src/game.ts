@@ -396,9 +396,20 @@ export const pickUpPile = (
 //   );
 // };
 //
+/** Where a round's points came from; every part is signed, so they add up to the points. */
+export type ScoreBreakdown = {
+  /** Value of melded cards: added with a catnasta, taken off without one. */
+  melded: number;
+  catnastas: number;
+  redThrees: number;
+  wentOut: number;
+  /** Value of the cards left in hand, always taken off. */
+  hand: number;
+};
+
 export const calculatePlayerScore = (
   player: Player,
-): { name: string; points: number } => {
+): { name: string; points: number; breakdown: ScoreBreakdown } => {
   const meldPoints = player.melds
     .flatMap((c) => c)
     .reduce((sum, card) => sum + getCardPoints(card), 0);
@@ -412,9 +423,10 @@ export const calculatePlayerScore = (
     return meld.length >= 7;
   });
 
+  const redThrees = player.red_threes.length * 100;
   if (!playerHadCatnasta) {
-    const points = -meldPoints - handPoints + player.red_threes.length * 100;
-    return { name: player.name, points };
+    const breakdown = { melded: -meldPoints, catnastas: 0, redThrees, wentOut: 0, hand: -handPoints };
+    return { name: player.name, points: -meldPoints - handPoints + redThrees, breakdown };
   }
 
   const numOfNaturalCatnastas = player.melds.filter((meld) => {
@@ -441,17 +453,17 @@ export const calculatePlayerScore = (
 
   const playerFinished = player.hand.length === 0;
 
+  const breakdown = {
+    melded: meldPoints,
+    catnastas: numOfNaturalCatnastas * 500 + numOfMixedCatnastas * 300 + numOfWildCatnastas * 1000,
+    redThrees,
+    wentOut: playerFinished ? 100 : 0,
+    hand: -handPoints,
+  };
   const points =
-    meldPoints -
-    handPoints +
-    player.red_threes.length * 100 +
-    numOfNaturalCatnastas * 500 +
-    numOfMixedCatnastas * 300 +
-    numOfWildCatnastas * 1000 +
-    (playerFinished ? 100 : 0);
-  // TODO: Calculate bonuses
+    breakdown.melded + breakdown.catnastas + breakdown.redThrees + breakdown.wentOut + breakdown.hand;
 
-  return { name: player.name, points };
+  return { name: player.name, points, breakdown };
 };
 //
 // export const playRound = async (gameState: GameState): Promise<void> => {

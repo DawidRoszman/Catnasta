@@ -326,6 +326,7 @@ export function GameContextProvider({
               loser: msg.loser,
               reason: msg.reason ?? "score",
               forfeitedBy: msg.forfeited_by ?? null,
+              lastRound: msg.last_round ?? null,
             },
           });
           dispatch({
