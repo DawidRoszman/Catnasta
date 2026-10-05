@@ -2,6 +2,8 @@ import {
   DEFAULT_HAND_SIZE,
   addToMeld,
   calculatePlayerScore,
+  canPickUpPile,
+  catnastaFor,
   discardCard,
   drawCard,
   formatCardsForMelding,
@@ -543,13 +545,10 @@ export const discardCardDispatch = async (
   const player =
     msg.name === gameState.player1.name ? gameState.player1 : gameState.player2;
   discardCard(player.hand, gameState.discardPile, msg.cardId);
-  console.log(gameState);
-  const newTurn =
+  const opponent =
     player.name === gameState.player1.name
       ? gameState.player2.name
       : gameState.player1.name;
-  gameState.turn = newTurn;
-  gameState.hasDrawn = false;
   const p1Score = calculatePlayerScore(gameState.player1);
   const p2Score = calculatePlayerScore(gameState.player2);
   gameState.player1.score = p1Score.points;
@@ -578,7 +577,7 @@ export const discardCardDispatch = async (
     }),
   );
   client.publish(
-    `catnasta/game/${msg.id}/${newTurn}`,
+    `catnasta/game/${msg.id}/${opponent}`,
     JSON.stringify({
       type: "ENEMY_HAND",
       enemy_hand: player.hand.length,
@@ -589,17 +588,67 @@ export const discardCardDispatch = async (
     await endRound(client, msg.id, gameState, mongoClient);
     return;
   }
-  startTurnClock(client, msg.id, gameState, mongoClient);
+  passTurn(client, msg.id, gameState, mongoClient);
+};
+
+/** Shows both tables a player's pile pickup: their melds, hand and the emptied litterbox. */
+function publishPickup(client: Broker, gameId: string, gameState: GameState, player: Player) {
+  const opponent = player === gameState.player1 ? gameState.player2 : gameState.player1;
   client.publish(
-    `catnasta/game/${msg.id}`,
+    `catnasta/game/${gameId}`,
+    JSON.stringify({ type: "MELDED_CARDS", name: player.name, melds: player.melds }),
+  );
+  client.publish(`catnasta/game/${gameId}/${player.name}`, JSON.stringify({ type: "HAND", hand: player.hand }));
+  client.publish(
+    `catnasta/game/${gameId}`,
+    JSON.stringify({
+      type: "DISCARD_PILE_TOP_CARD",
+      discard_pile_top_card: gameState.discardPile.at(-1) ?? null,
+      discard_pile_count: gameState.discardPile.length,
+    }),
+  );
+  client.publish(
+    `catnasta/game/${gameId}/${opponent.name}`,
+    JSON.stringify({ type: "ENEMY_HAND", enemy_hand: player.hand.length }),
+  );
+}
+
+/**
+ * Ends the current player's turn and hands it to the other player. If the
+ * litterbox's top card matches one of that player's catnastas they must take
+ * the pile: the card joins the catnasta, the rest goes into their hand, and
+ * their turn is skipped, so it comes straight back.
+ */
+function passTurn(client: Broker, gameId: string, gameState: GameState, mongoClient: MongoClient) {
+  const other = (name: string) => (name === gameState.player1.name ? gameState.player2 : gameState.player1);
+  const next = other(gameState.turn);
+  gameState.turn = next.name;
+  gameState.hasDrawn = false;
+
+  const top = gameState.discardPile.at(-1);
+  if (top && catnastaFor(next, top) && canPickUpPile(next, gameState.discardPile)) {
+    pickUpPile(gameState.discardPile, next);
+    publishPickup(client, gameId, gameState, next);
+    client.publish(
+      `catnasta/game/${gameId}`,
+      JSON.stringify({ type: "PILE_FORCED", player: next.name, card: top }),
+    );
+    gameState.turn = other(next.name).name;
+  }
+
+  gameState.player1.score = calculatePlayerScore(gameState.player1).points;
+  gameState.player2.score = calculatePlayerScore(gameState.player2).points;
+  startTurnClock(client, gameId, gameState, mongoClient);
+  client.publish(
+    `catnasta/game/${gameId}`,
     JSON.stringify({
       type: "TURN",
-      current_player: newTurn,
+      current_player: gameState.turn,
       turn_deadline: gameState.turnDeadline ?? null,
     }),
   );
-  publishScores(client, msg.id, gameState);
-};
+  publishScores(client, gameId, gameState);
+}
 
 export const meldCardDispatch = (
   client: Broker,
@@ -784,6 +833,7 @@ export const pickUpPileDispatch = (
   client: Broker,
   gameState: GameState,
   msg: any,
+  mongoClient = {} as MongoClient,
 ) => {
   if (
     msg.name !== gameState.player1.name &&
@@ -821,42 +871,7 @@ export const pickUpPileDispatch = (
     );
     return;
   }
-  gameState.hasDrawn = true;
-
-  // The top card was melded with two naturals from the hand.
-  client.publish(
-    `catnasta/game/${msg.id}`,
-    JSON.stringify({
-      type: "MELDED_CARDS",
-      name: player.name,
-      melds: player.melds,
-    }),
-  );
-  // Notify all players about the updated game state
-  client.publish(
-    `catnasta/game/${msg.id}/${msg.name}`,
-    JSON.stringify({
-      type: "HAND",
-      hand: player.hand,
-    }),
-  );
-  client.publish(
-    `catnasta/game/${msg.id}`,
-    JSON.stringify({
-      type: "DISCARD_PILE_TOP_CARD",
-      discard_pile_top_card: gameState.discardPile.at(-1) ?? null,
-      discard_pile_count: gameState.discardPile.length,
-    }),
-  );
-  client.publish(
-    `catnasta/game/${msg.id}/${
-      player.name === gameState.player1.name
-        ? gameState.player2.name
-        : gameState.player1.name
-    }`,
-    JSON.stringify({
-      type: "ENEMY_HAND",
-      enemy_hand: player.hand.length,
-    }),
-  );
+  // Taking the pile is the whole turn: the top card has gone to the table and the turn passes.
+  publishPickup(client, msg.id, gameState, player);
+  passTurn(client, msg.id, gameState, mongoClient);
 };

@@ -875,14 +875,15 @@ export function catnastaTopCard(meld: PlayingCard[]): PlayingCard {
 
 /**
  * Why the litterbox pile can't be taken right now, or null when it can,
- * mirroring the server: the top card is melded at once with two naturals
- * from the hand, so the pile needs those naturals and a card left to discard.
+ * mirroring the server: the top card joins a catnasta of its rank, or is
+ * melded at once with two naturals from the hand, which then needs those
+ * naturals and a card left to discard.
  */
 export function pileBlocker(
   top: PlayingCard | null,
   pileCount: number,
   hand: PlayingCard[],
-  hasMelded: boolean,
+  melds: PlayingCard[][],
 ): string | null {
   if (top === null) {
     return "The litterbox pile is empty.";
@@ -890,7 +891,11 @@ export function pileBlocker(
   if (isBlackThree(top) || isWild(top)) {
     return "A black three or wild card on top blocks the litterbox pile.";
   }
-  if (!hasMelded) {
+  // A catnasta of the top card's rank takes it on its own; the pile comes into the hand.
+  if (melds.some((meld) => meld.length >= 7 && meld.some((card) => card.rank === top.rank))) {
+    return null;
+  }
+  if (melds.length === 0) {
     return "Meld needed to take litterbox pile.";
   }
   const pairs = hand.filter((card) => card.rank === top.rank).length;

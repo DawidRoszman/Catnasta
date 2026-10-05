@@ -228,7 +228,7 @@ broker.onMessage(async (topic, message) => {
         dispatchAddToMeld(broker, gameState, msg);
         break;
       case "PICKUP_DISCARD_PILE":
-        pickUpPileDispatch(broker, gameState, msg);
+        pickUpPileDispatch(broker, gameState, msg, mongoClient);
         break;
     }
     gameChanged(game.gameId);

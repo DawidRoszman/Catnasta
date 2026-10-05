@@ -46,7 +46,8 @@ export type SceneProps = {
   layout: LayoutInput;
   stockCount: number;
   canDraw: boolean;
-  canPickUp: boolean;
+  /** The litterbox glows when it can be taken, or when a selected card can be dropped on it. */
+  litterboxActive: boolean;
   onCardClick: (target: ClickTarget) => void;
   onStockClick: () => void;
   onDiscardClick: () => void;
@@ -128,7 +129,7 @@ export default function Scene(props: SceneProps) {
           <StockPile count={props.stockCount} active={props.canDraw} onClick={props.onStockClick} />
           <DiscardPile
             count={props.layout.discardCount}
-            active={props.canPickUp}
+            active={props.litterboxActive}
             onClick={props.onDiscardClick}
           />
           <Cards layout={props.layout} stockCount={props.stockCount} onCardClick={props.onCardClick} />

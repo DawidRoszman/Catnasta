@@ -52,7 +52,7 @@ export default function GameBoard() {
         gameState.discardPileTopCard,
         gameState.discardPileCount,
         gameState.player1.hand,
-        gameState.player1.melds.length > 0,
+        gameState.player1.melds,
       )
     : null;
 
@@ -200,6 +200,18 @@ export default function GameBoard() {
     clearSelection();
   };
 
+  /** The litterbox: take it while drawing, or drop the one selected card on it to discard. */
+  const clickLitterbox = () => {
+    if (phase !== "play") {
+      pickUpDiscardPile();
+      return;
+    }
+    if (liveSelected.size !== 1) {
+      toast("Select one card, then click the litterbox to discard it.");
+      return;
+    }
+    discard();
+  };
   const discard = async () => {
     if (!requirePlayPhase()) {
       return;
@@ -266,7 +278,7 @@ export default function GameBoard() {
         setStaged(liveStaged.filter((_, index) => index !== target.index));
         break;
       case "discard":
-        pickUpDiscardPile();
+        clickLitterbox();
         break;
     }
   };
@@ -292,10 +304,10 @@ export default function GameBoard() {
           layout={layout}
           stockCount={Math.max(gameState.stockCardCount, 0)}
           canDraw={phase === "draw"}
-          canPickUp={phase === "draw" && pileProblem === null}
+          litterboxActive={(phase === "draw" && pileProblem === null) || (phase === "play" && liveSelected.size === 1)}
           onCardClick={handleCardClick}
           onStockClick={drawFromStock}
-          onDiscardClick={pickUpDiscardPile}
+          onDiscardClick={clickLitterbox}
         />
       </div>
       <GameHud

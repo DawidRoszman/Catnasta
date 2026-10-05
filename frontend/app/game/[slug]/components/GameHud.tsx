@@ -545,14 +545,16 @@ export function RulesModal({ open, onClose }: { open: boolean; onClose: () => vo
           <h3 className="mb-2 font-semibold text-cream">Your turn</h3>
           <ol className="list-decimal space-y-1.5 pl-5">
             <li>
-              <b className="text-cream">Draw</b> — click the stock, or take the whole litterbox pile.
+              <b className="text-cream">Draw</b> — click the stock, or take the whole litterbox pile
+              (which ends your turn).
             </li>
             <li>
               <b className="text-cream">Meld</b> — click cards in your hand to select them, stage
               groups of three or more, then play them. Click one of your melds to add selected cards.
             </li>
             <li>
-              <b className="text-cream">Discard</b> — select one card and discard it to end your turn.
+              <b className="text-cream">Discard</b> — select one card and click the litterbox to end your
+              turn.
             </li>
           </ol>
         </section>
@@ -574,7 +576,8 @@ export function RulesModal({ open, onClose }: { open: boolean; onClose: () => vo
             <li>A meld of seven or more cards is a <b className="text-brass">Catnasta</b>.</li>
             <li>
               To take the litterbox pile you need two naturals matching its top card; those three cards
-              are melded straight away.
+              are melded straight away and your turn ends. If it matches one of your catnastas, you must
+              take it: the card joins the catnasta and your turn is skipped.
             </li>
             <li>Red threes score 100 bonus points; a black three on the pile blocks it.</li>
             <li>

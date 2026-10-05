@@ -244,6 +244,11 @@ export const canPickUpPile = (
     return false;
   }
 
+  // A catnasta of the top card's rank can take it straight away.
+  if (catnastaFor(player, topCard) !== undefined) {
+    return true;
+  }
+
   // Check if player has at least two natural cards of the same rank as the top card
   const matchingCards = player.hand.filter(
     (card) => card.rank === topCard.rank && card.rank !== "2" && (card as Joker).rank !== "JOKER"
@@ -252,6 +257,15 @@ export const canPickUpPile = (
   return matchingCards.length >= 2;
 };
 
+/** A meld of this many cards is a catnasta. */
+export const CATNASTA_SIZE = 7;
+
+/** The player's finished catnasta of the card's rank, if they have one. */
+export const catnastaFor = (player: Player, card: Card | Joker) =>
+  player.melds.find(
+    (meld) => meld.length >= CATNASTA_SIZE && meld.some((cardInMeld) => cardInMeld.rank === card.rank),
+  );
+
 export const pickUpPile = (
   discardPile: (Card | Joker)[],
   player: Player,
@@ -259,18 +273,28 @@ export const pickUpPile = (
   if (!canPickUpPile(player, discardPile)) {
     return { 
       success: false, 
-      message: "Cannot pick up the litterbox pile. Make sure you have completed your first meld and have at least two matching natural cards for the top card." 
+      message: "Cannot pick up the litterbox pile. You need a catnasta of the top card's rank, or a meld on the table and two matching natural cards in hand." 
     };
   }
 
   const topCard = discardPile[discardPile.length - 1];
+
+  // With a catnasta of that rank, the top card simply joins it and the rest comes into the hand.
+  const catnasta = catnastaFor(player, topCard);
+  if (catnasta) {
+    catnasta.push(topCard);
+    player.hand.push(...discardPile.slice(0, -1));
+    discardPile.length = 0;
+    return { success: true };
+  }
+
   const naturals = player.hand.filter((card) => card.rank === topCard.rank).slice(0, 2);
   // The top card and the two naturals it was taken with go straight to the table,
-  // so something has to be left in hand to discard.
+  // and the hand mustn't be left empty.
   if (player.hand.length - naturals.length + discardPile.length - 1 === 0) {
     return {
       success: false,
-      message: "You'd have no card left to discard after melding the top card.",
+      message: "You'd have no cards left in hand after melding the top card.",
     };
   }
 

@@ -339,6 +339,58 @@ describe("taking the discard pile", () => {
     expect(gameState.player1.hand).toHaveLength(1);
   });
 
+  test("a catnasta of the top card's rank takes the pile without a pair in hand", () => {
+    const catnasta = cards(7, Rank.EIGHT);
+    const top = card(Rank.EIGHT, Suit.DIAMOND);
+    const rest = [card(Rank.SIX), card(Rank.KING)];
+    const hand = [card(Rank.FOUR)];
+    const { broker, gameState, ofType } = setup({
+      player1: player("ann", { melds: [catnasta], hand }),
+      discardPile: [...rest, top],
+    });
+    const expectedHand = [...hand, ...rest];
+    pickUpPileDispatch(broker, gameState, msg("ann"));
+
+    expect(ofType("PICKUP_ERROR")).toHaveLength(0);
+    // Taking the pile ends the turn.
+    expect(gameState.turn).toBe("bob");
+    expect(gameState.player1.melds).toHaveLength(1);
+    expect(gameState.player1.melds[0]).toHaveLength(8);
+    expect(gameState.player1.melds[0].at(-1)).toBe(top);
+    expect(gameState.player1.hand).toEqual(expectedHand);
+    expect(gameState.discardPile).toEqual([]);
+  });
+
+  test("with a catnasta and a pair, only the top card joins and the pair stays in hand", () => {
+    const pair = cards(2, Rank.EIGHT, Suit.HEART);
+    const { broker, gameState } = setup({
+      player1: player("ann", { melds: [cards(7, Rank.EIGHT)], hand: pair }),
+      discardPile: [card(Rank.EIGHT)],
+    });
+    pickUpPileDispatch(broker, gameState, msg("ann"));
+    expect(gameState.player1.melds[0]).toHaveLength(8);
+    expect(gameState.player1.hand).toEqual(pair);
+  });
+
+  test("a meld of that rank that isn't a catnasta yet still needs the pair", () => {
+    const { broker, gameState, ofType } = setup({
+      player1: player("ann", { melds: [cards(5, Rank.EIGHT)], hand: [card(Rank.EIGHT), card(Rank.FOUR)] }),
+      discardPile: [card(Rank.EIGHT)],
+    });
+    pickUpPileDispatch(broker, gameState, msg("ann"));
+    expect(ofType("PICKUP_ERROR")).toHaveLength(1);
+    expect(gameState.discardPile).toHaveLength(1);
+  });
+
+  test("a catnasta doesn't unblock a black three on top", () => {
+    const { broker, gameState, ofType } = setup({
+      player1: player("ann", { melds: [cards(7, Rank.THREE, Suit.HEART)], hand: [card(Rank.FOUR)] }),
+      discardPile: [card(Rank.THREE, Suit.CLUB)],
+    });
+    pickUpPileDispatch(broker, gameState, msg("ann"));
+    expect(ofType("PICKUP_ERROR")).toHaveLength(1);
+  });
+
   test("is refused when nothing would be left to discard", () => {
     const nines = cards(2, Rank.NINE);
     const { broker, gameState, ofType } = setup({
@@ -350,6 +402,60 @@ describe("taking the discard pile", () => {
     expect(gameState.player1.hand).toEqual(nines);
     expect(gameState.discardPile).toHaveLength(1);
     expect(gameState.hasDrawn).toBe(false);
+  });
+});
+
+describe("turns around the litterbox", () => {
+  test("taking the pile with a pair ends the turn: no meld or discard after it", () => {
+    const nines = cards(2, Rank.NINE);
+    const { broker, gameState, ofType } = setup({
+      player1: player("ann", { melds: [cards(3, Rank.ACE)], hand: [...nines, card(Rank.FOUR)] }),
+      discardPile: [card(Rank.SIX), card(Rank.NINE)],
+    });
+    pickUpPileDispatch(broker, gameState, msg("ann"));
+    expect(gameState.turn).toBe("bob");
+    expect(gameState.hasDrawn).toBe(false);
+    expect(ofType("TURN").at(-1)!.msg.current_player).toBe("bob");
+
+    // Ann can't carry on with her turn.
+    const handBefore = gameState.player1.hand.length;
+    discardCardDispatch(broker, gameState, msg("ann", { cardId: gameState.player1.hand[0].id }), {} as any, games);
+    expect(gameState.player1.hand).toHaveLength(handBefore);
+  });
+
+  test("discarding a card that matches the opponent's catnasta hands them the pile and skips their turn", async () => {
+    const eight = card(Rank.EIGHT, Suit.CLUB);
+    const catnasta = cards(7, Rank.EIGHT);
+    const bobHand = cards(3, Rank.QUEEN);
+    const { broker, gameState, ofType } = setup({
+      hasDrawn: true,
+      player1: player("ann", { hand: [eight, card(Rank.FOUR), card(Rank.FIVE)] }),
+      player2: player("bob", { melds: [catnasta], hand: bobHand }),
+      discardPile: [card(Rank.SIX), card(Rank.KING)],
+    });
+    await discardCardDispatch(broker, gameState, msg("ann", { cardId: eight.id }), {} as any, games);
+
+    expect(gameState.player2.melds[0]).toHaveLength(8);
+    expect(gameState.player2.melds[0].at(-1)).toBe(eight);
+    expect(gameState.player2.hand.map(({ rank }) => rank).sort()).toEqual(["6", "K", "Q", "Q", "Q"]);
+    expect(gameState.discardPile).toEqual([]);
+    // Bob's turn was spent taking the pile, so it's Ann's turn again.
+    expect(gameState.turn).toBe("ann");
+    expect(gameState.hasDrawn).toBe(false);
+    expect(ofType("PILE_FORCED")[0].msg).toMatchObject({ player: "bob", card: eight });
+    expect(ofType("TURN").map(({ msg }) => msg.current_player)).toEqual(["ann"]);
+  });
+
+  test("a card that doesn't match the catnasta's rank leaves the turn alone", async () => {
+    const four = card(Rank.FOUR);
+    const { broker, gameState, ofType } = setup({
+      hasDrawn: true,
+      player1: player("ann", { hand: [four, card(Rank.FIVE)] }),
+      player2: player("bob", { melds: [cards(7, Rank.EIGHT)], hand: cards(2, Rank.QUEEN) }),
+    });
+    await discardCardDispatch(broker, gameState, msg("ann", { cardId: four.id }), {} as any, games);
+    expect(gameState.turn).toBe("bob");
+    expect(ofType("PILE_FORCED")).toHaveLength(0);
   });
 });
 
@@ -366,6 +472,7 @@ describe("drawing after taking the pile", () => {
     expect(gameState.player1.hand.length).toBeGreaterThan(16);
 
     // A later turn: drawing from the stock must still work.
+    gameState.turn = "ann";
     gameState.hasDrawn = false;
     const before = gameState.player1.hand.length;
     drawCardDispatch(broker, gameState, msg("ann"));

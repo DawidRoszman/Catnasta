@@ -184,6 +184,14 @@ export function GameContextProvider({
             dispatch({ type: Type.PLAYER_DRAW_CARD, payload: { name: username } });
           }
           break;
+        case "PILE_FORCED":
+          toast(
+            msg.player === username
+              ? "Your catnasta took the litterbox pile, so your turn was skipped."
+              : `${msg.player}'s catnasta took the litterbox pile, so their turn was skipped.`,
+            { title: "Litterbox taken" },
+          );
+          break;
         case "TURN_TIMEOUT":
           toast(
             msg.player === username

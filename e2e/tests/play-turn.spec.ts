@@ -22,7 +22,8 @@ test("join a table and play a turn on the 3D board", async ({ page }) => {
   // Click a card in the middle of the fanned hand on the 3D table.
   await page.mouse.click(720, 720);
   await expect(page.getByText("1 selected")).toBeVisible();
-  await page.getByRole("button", { name: "Discard" }).click();
+  // Drop it on the litterbox to discard.
+  await page.mouse.click(1130, 415);
   await expect(page.getByText(`Waiting for ${opponent} to come back…`)).toBeVisible();
   await expect(page.getByText("1 selected")).toBeHidden();
 

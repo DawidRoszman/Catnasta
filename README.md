@@ -75,6 +75,8 @@ Each round, player's initial meld **must score a minimum number of points**. Thi
 The fight for the discard pile is one of Canasta’s key elements. Players can strategically prevent opponents from picking up the discard pile. The taller the pile is, the more suspenseful the fight. If you get to pick up the pile, you can feel victorious: You gained many cards and, potentially, complete canastas. The opportunity to pick up a tall discard pile can decide the game. Picking up the discard pile is also called buying.
 
 - You can pick up the discard pile only after you completed the first meld
+- Taking the discard pile ends your turn: no melding or discarding after it.
+- If the top card matches one of your catnastas when your turn comes, you must take the pile: the card joins your catnasta, the rest goes into your hand, and your turn is skipped.
 - When buying the discard pile, its top card is immediately melded with two natural cards of the same rank from your hand (joining your meld of that rank if you have one). You must still have a card left to discard.
 - If the top card of the discard pile is a black Three or a wild card, you cannot pick up the discard pile. It is blocked.
 
