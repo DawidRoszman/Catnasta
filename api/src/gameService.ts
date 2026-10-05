@@ -15,8 +15,9 @@ import { Broker } from "./socket";
 
 export const games: Game[] = [];
 
+/** The lobby listing: every table except private ones. */
 export const gameListPayload = () =>
-  games.map((game) => ({
+  games.filter((game) => !game.private).map((game) => ({
     id: game.gameId,
     players_in_game:
       game.gameState.player1.name && game.gameState.player2.name ? 2 : 1,

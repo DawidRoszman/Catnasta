@@ -20,6 +20,8 @@ export interface ClientGame {
 }
 export interface Game {
   gameId: string;
+  /** Hidden from the lobby; reachable only by its code or invite link. */
+  private?: boolean;
   gameState: GameState;
 }
 export interface Player {

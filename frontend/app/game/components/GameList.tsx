@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Users } from "lucide-react";
+import { Lock, Plus, Users } from "lucide-react";
 import type { Game } from "../page";
 import client from "@/app/lib/socket";
 import { createGame, joinGame } from "@/app/lib/joinGame";
@@ -54,14 +54,26 @@ const GameList = ({ games }: { games: Game[] }) => {
           <h1 className="font-display text-4xl font-semibold tracking-tight">Open tables</h1>
           <p className="mt-2 text-cream-dim">Pick a seat, or deal a new table and invite a friend.</p>
         </div>
-        <Button
-          size="lg"
-          onClick={() => go(() => createGame(username), "create")}
-          loading={busy === "create"}
-          disabled={!username}
-        >
-          <Plus className="h-5 w-5" />New table
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            size="lg"
+            variant="secondary"
+            onClick={() => go(() => createGame(username, true), "private")}
+            loading={busy === "private"}
+            disabled={!username}
+            title="Hidden from the lobby. Only people with the code or invite link can join."
+          >
+            <Lock className="h-5 w-5" />Private table
+          </Button>
+          <Button
+            size="lg"
+            onClick={() => go(() => createGame(username), "create")}
+            loading={busy === "create"}
+            disabled={!username}
+          >
+            <Plus className="h-5 w-5" />New table
+          </Button>
+        </div>
       </div>
 
       {gameList.length === 0 ? (

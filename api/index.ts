@@ -6,9 +6,11 @@ import {
   discardCardDispatch,
   dispatchAddToMeld,
   drawCardDispatch,
+  gameListPayload,
   games,
   meldCardDispatch,
   pickUpPileDispatch,
+  publishGameList,
   startRoundDispatch,
 } from "./src/gameService";
 import { MongoClient, ObjectId, ServerApiVersion } from "mongodb";
@@ -16,6 +18,7 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import { createBroker } from "./src/socket";
 import { createLifecycle } from "./src/lifecycle";
+import { Game } from "./src/types/types";
 
 require("dotenv").config();
 
@@ -529,15 +532,7 @@ app.get(
   "/live_games",
   authenticateToken,
   async (req: Request, res: Response) => {
-    return res.status(200).send(
-      games.map((game) => {
-        return {
-          id: game.gameId,
-          players_in_game:
-            game.gameState.player1.name && game.gameState.player2.name ? 2 : 1,
-        };
-      }),
-    );
+    return res.status(200).send(gameListPayload());
   },
 );
 
@@ -571,8 +566,9 @@ app.post("/create_game", async (req: Request, res: Response) => {
     return res.send({ msg: "Please log in to create game" });
   }
   const id = Math.random().toString(36).substring(2, 8).toUpperCase();
-  const game = {
+  const game: Game = {
     gameId: id,
+    private: req.body.private === true,
     gameState: {
       turn: "",
       gameOver: false,
@@ -596,18 +592,7 @@ app.post("/create_game", async (req: Request, res: Response) => {
     },
   };
   games.push(game);
-  broker.publish(
-    "catnasta/game_list",
-    JSON.stringify(
-      games.map((game) => {
-        return {
-          id: game.gameId,
-          players_in_game:
-            game.gameState.player1.name && game.gameState.player2.name ? 2 : 1,
-        };
-      }),
-    ),
-  );
+  publishGameList(broker);
   return res.send({ id: game.gameId });
 });
 
@@ -641,20 +626,7 @@ app.put("/join_game", async (req: Request, res: Response) => {
     games.map((game) => {
       if (game.gameId === id) return updatedGame;
     });
-    broker.publish(
-      "catnasta/game_list",
-      JSON.stringify(
-        games.map((game) => {
-          return {
-            id: game.gameId,
-            players_in_game:
-              game.gameState.player1.name && game.gameState.player2.name
-                ? 2
-                : 1,
-          };
-        }),
-      ),
-    );
+    publishGameList(broker);
     return res.send({ id: id });
   }
   return res.send({ msg: "Game not found" });

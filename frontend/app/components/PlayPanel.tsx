@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Plus } from "lucide-react";
+import { ArrowRight, Lock, Plus } from "lucide-react";
 import { useUserContext } from "./UserContext";
 import { Button, ButtonLink } from "./ui/Button";
 import { Input } from "./ui/Input";
@@ -14,7 +14,7 @@ export default function PlayPanel() {
   const router = useRouter();
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
-  const [busy, setBusy] = useState<"create" | "join" | null>(null);
+  const [busy, setBusy] = useState<"create" | "private" | "join" | null>(null);
 
   if (!user?.ready) {
     return (
@@ -45,10 +45,10 @@ export default function PlayPanel() {
     );
   }
 
-  const handleCreate = async () => {
-    setBusy("create");
+  const handleCreate = async (isPrivate: boolean) => {
+    setBusy(isPrivate ? "private" : "create");
     setError("");
-    const result = await createGame(user.username);
+    const result = await createGame(user.username, isPrivate);
     if ("error" in result) {
       setError(result.error);
       setBusy(null);
@@ -72,15 +72,29 @@ export default function PlayPanel() {
 
   return (
     <Panel className="p-6" id="play">
-      <Button
-        size="lg"
-        className="w-full"
-        onClick={handleCreate}
-        loading={busy === "create"}
-        id="create-game"
-      >
-        <Plus className="h-5 w-5" />Deal a new table
-      </Button>
+      <div className="flex gap-2">
+        <Button
+          size="lg"
+          className="flex-1"
+          onClick={() => handleCreate(false)}
+          loading={busy === "create"}
+          disabled={busy !== null}
+          id="create-game"
+        >
+          <Plus className="h-5 w-5" />Deal a new table
+        </Button>
+        <Button
+          size="lg"
+          variant="secondary"
+          onClick={() => handleCreate(true)}
+          loading={busy === "private"}
+          disabled={busy !== null}
+          id="create-private-game"
+          title="Hidden from the lobby. Only people with the code or invite link can join."
+        >
+          <Lock className="h-5 w-5" />Private
+        </Button>
+      </div>
       <div className="my-5 flex items-center gap-3 text-xs font-semibold uppercase tracking-wider text-muted">
         <span className="h-px flex-1 bg-line" /> or join with a code <span className="h-px flex-1 bg-line" />
       </div>
