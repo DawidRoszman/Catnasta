@@ -13,6 +13,7 @@ name: Deal a table with custom options
 - assertVisible: "Points to win"
 - tapOn: "1,000"
 - tapOn: "5s"
+- tapOn: "60s"
 - tapOn: "Deal table"
 - extendedWaitUntil:
     visible:
@@ -24,6 +25,7 @@ name: Deal a table with custom options
 - assertVisible: "Open tables"
 - assertVisible: ${maestro.copiedText}
 - assertVisible: "First to 1,000"
+- assertVisible: "60s turns"
 
 # The same dialog deals private tables, which stay out of the lobby.
 - tapOn:

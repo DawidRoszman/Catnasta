@@ -25,6 +25,8 @@ export type TableOptions = {
   private?: boolean;
   winningScore?: number;
   roundBreakSeconds?: number;
+  /** Seconds per turn; 0 for no limit. */
+  turnSeconds?: number;
 };
 
 /** Deals a table; options left out use the server's defaults. */

@@ -13,6 +13,8 @@ export interface Game {
   players_in_game: number;
   /** Total that wins the game at this table. */
   winning_score?: number;
+  /** Seconds per turn, or null when turns are untimed. */
+  turn_seconds?: number | null;
 }
 
 const Lobby = async () => {

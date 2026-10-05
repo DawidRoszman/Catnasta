@@ -1,0 +1,54 @@
+url: http://localhost:3000
+name: Timed turns play themselves when time runs out
+---
+- launchApp:
+    clearState: true
+- openLink: ${BASE_URL}
+- runFlow: ../subflows/register.yaml
+- runScript:
+    file: ../scripts/opponentTable.js
+    env:
+      API_URL: ${API_URL}
+      TURN_SECONDS: "30"
+- openLink: ${BASE_URL}
+- tapOn:
+    id: "table-code"
+- inputText: ${output.tableCode}
+- tapOn: "Join"
+- extendedWaitUntil:
+    visible:
+      id: "action-dock"
+    timeout: 20000
+- assertVisible:
+    id: "turn-timer"
+
+# The API opponent never moves, so if they start, their clock plays for them.
+# Long single waits give up early on web, so wait in shorter rounds.
+- repeat:
+    while:
+      notVisible: "Your turn — draw from the stock or take the discard pile"
+    times: 5
+    commands:
+      - extendedWaitUntil:
+          visible: "Your turn — draw from the stock or take the discard pile"
+          timeout: 10000
+          optional: true
+- assertVisible: "Your turn — draw from the stock or take the discard pile"
+- assertVisible:
+    id: "turn-timer"
+- takeScreenshot: turn-timer-mine
+
+# Do nothing: when the clock runs out a card is drawn and the lowest discarded.
+- repeat:
+    while:
+      notVisible: "Time's up — a card was drawn for you and your lowest card discarded."
+    times: 5
+    commands:
+      - extendedWaitUntil:
+          visible: "Time's up — a card was drawn for you and your lowest card discarded."
+          timeout: 10000
+          optional: true
+- assertVisible: "Time's up — a card was drawn for you and your lowest card discarded."
+- assertVisible: ${"Waiting for " + output.opponent + " to come back…"}
+- assertVisible:
+    id: "turn-timer"

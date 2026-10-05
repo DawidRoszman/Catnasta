@@ -6,6 +6,7 @@ import {
   formatCardsForMelding,
   getMeldPoints,
   getMinimumFirstMeldPoints,
+  lowestCardToDiscard,
   meldCards,
   startRound,
   pickUpPile,
@@ -19,9 +20,16 @@ export const games: Game[] = [];
 export const DEFAULT_SETTINGS: TableSettings = {
   winningScore: Number(process.env.WINNING_SCORE ?? 5000),
   roundBreakSeconds: Number(process.env.ROUND_BREAK_SECONDS ?? 10),
+  turnSeconds: null,
 };
 
-const SETTING_LIMITS: Record<keyof TableSettings, { min: number; max: number; label: string }> = {
+/** The turn lengths a host can pick; 0 or null turns the clock off. */
+export const TURN_SECONDS_CHOICES = [30, 60, 90];
+
+const SETTING_LIMITS: Record<
+  Exclude<keyof TableSettings, "turnSeconds">,
+  { min: number; max: number; label: string }
+> = {
   winningScore: { min: 500, max: 20000, label: "Points to win" },
   roundBreakSeconds: { min: 3, max: 60, label: "Break between rounds" },
 };
@@ -31,7 +39,14 @@ export function parseTableSettings(
   body: Partial<Record<keyof TableSettings, unknown>>,
 ): TableSettings | { error: string } {
   const settings = { ...DEFAULT_SETTINGS };
-  for (const key of Object.keys(SETTING_LIMITS) as (keyof TableSettings)[]) {
+  const turnSeconds = body.turnSeconds;
+  if (turnSeconds !== undefined && turnSeconds !== null && turnSeconds !== 0) {
+    if (typeof turnSeconds !== "number" || !TURN_SECONDS_CHOICES.includes(turnSeconds)) {
+      return { error: `Time per turn must be off or ${TURN_SECONDS_CHOICES.join(", ")} seconds` };
+    }
+    settings.turnSeconds = turnSeconds;
+  }
+  for (const key of Object.keys(SETTING_LIMITS) as (keyof typeof SETTING_LIMITS)[]) {
     const value = body[key];
     if (value === undefined || value === null) {
       continue;
@@ -50,6 +65,7 @@ export const gameListPayload = () =>
   games.filter((game) => !game.private).map((game) => ({
     id: game.gameId,
     winning_score: game.gameState.settings.winningScore,
+    turn_seconds: game.gameState.settings.turnSeconds,
     players_in_game:
       game.gameState.player1.name && game.gameState.player2.name ? 2 : 1,
   }));
@@ -60,6 +76,7 @@ export function publishGameList(client: Broker) {
 
 /** Drops a game from the live list and tells the lobby. */
 export function removeGame(client: Broker, gameId: string) {
+  stopTurnClock(gameId);
   const index = games.findIndex((game) => game.gameId === gameId);
   if (index !== -1) {
     games.splice(index, 1);
@@ -67,10 +84,65 @@ export function removeGame(client: Broker, gameId: string) {
   publishGameList(client);
 }
 
+const turnClocks = new Map<string, NodeJS.Timeout>();
+
+function stopTurnClock(gameId: string) {
+  clearTimeout(turnClocks.get(gameId));
+  turnClocks.delete(gameId);
+}
+
+/**
+ * Starts the clock on the turn that just began, if the table times turns.
+ * When it runs out the player draws (unless they already did) and their
+ * lowest card is discarded for them, which passes the turn on.
+ */
+function startTurnClock(
+  client: Broker,
+  gameId: string,
+  gameState: GameState,
+  mongoClient: MongoClient,
+) {
+  stopTurnClock(gameId);
+  gameState.turnDeadline = undefined;
+  const seconds = gameState.settings.turnSeconds;
+  const player = gameState.turn;
+  if (!seconds || !player) {
+    return;
+  }
+  gameState.turnDeadline = Date.now() + seconds * 1000;
+  turnClocks.set(
+    gameId,
+    setTimeout(() => {
+      turnClocks.delete(gameId);
+      const game = games.find((game) => game.gameId === gameId);
+      if (game?.gameState !== gameState || gameState.gameOver || gameState.turn !== player) {
+        return;
+      }
+      const msg = { id: gameId, name: player };
+      if (!gameState.hasDrawn) {
+        drawCardDispatch(client, gameState, msg);
+      }
+      const hand = (player === gameState.player1.name ? gameState.player1 : gameState.player2).hand;
+      const card = lowestCardToDiscard(hand);
+      if (!card) {
+        return;
+      }
+      client.publish(
+        `catnasta/game/${gameId}`,
+        JSON.stringify({ type: "TURN_TIMEOUT", player, discarded: card }),
+      );
+      discardCardDispatch(client, gameState, { ...msg, cardId: card.id }, mongoClient, games).catch(
+        (err) => console.error("Could not play a timed-out turn", err),
+      );
+    }, seconds * 1000),
+  );
+}
+
 export function startRoundDispatch(
   client: Broker,
   gameState: GameState,
   msg: any,
+  mongoClient: MongoClient,
 ) {
   if (!gameState.gameStarted) {
     startRound(gameState);
@@ -79,6 +151,7 @@ export function startRoundDispatch(
     gameState.turn = gameState.roundStarter;
     gameState.hasDrawn = false;
     gameState.gameStarted = true;
+    startTurnClock(client, msg.id, gameState, mongoClient);
   }
   publishTable(client, msg.id, gameState);
 }
@@ -93,6 +166,7 @@ function publishTable(client: Broker, gameId: string, gameState: GameState) {
       current_player: gameState.turn,
       has_drawn: gameState.hasDrawn ?? false,
       round: gameState.round,
+      turn_deadline: gameState.turnDeadline ?? null,
     }),
   );
   client.publish(
@@ -215,6 +289,8 @@ async function endRound(
   });
   gameState.turn = "";
   gameState.hasDrawn = false;
+  stopTurnClock(gameId);
+  gameState.turnDeadline = undefined;
   publishScores(client, gameId, gameState);
 
   if (players.some((player) => player.total >= gameState.settings.winningScore)) {
@@ -255,6 +331,7 @@ async function endRound(
         ? gameState.player2.name
         : gameState.player1.name;
     gameState.turn = gameState.roundStarter;
+    startTurnClock(client, gameId, gameState, mongoClient);
     publishTable(client, gameId, gameState);
   }, breakMs);
 }
@@ -423,11 +500,13 @@ export const discardCardDispatch = async (
     await endRound(client, msg.id, gameState, mongoClient);
     return;
   }
+  startTurnClock(client, msg.id, gameState, mongoClient);
   client.publish(
     `catnasta/game/${msg.id}`,
     JSON.stringify({
       type: "TURN",
       current_player: newTurn,
+      turn_deadline: gameState.turnDeadline ?? null,
     }),
   );
   publishScores(client, msg.id, gameState);

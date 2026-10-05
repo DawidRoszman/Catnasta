@@ -72,6 +72,8 @@ export interface Game {
     winningScore: number;
     gameOver: boolean;
     turn: string | null;
+    /** Epoch ms when the current turn is played automatically, or null if untimed. */
+    turnDeadline: number | null;
     canDraw: boolean;
     canDiscard: boolean;
     canMeld: boolean;
@@ -118,6 +120,7 @@ export enum Type {
   TABLE_CLOSED,
   NEW_ROUND,
   SET_ROUND_RESULT,
+  SET_TURN_DEADLINE,
 }
 
 export interface Action {
@@ -279,6 +282,11 @@ export const gameReducer = (state: Game, action: Action): Game => {
         ...state,
         roundResult: null,
         gameState: { ...state.gameState, round: payload },
+      };
+    case Type.SET_TURN_DEADLINE:
+      return {
+        ...state,
+        gameState: { ...state.gameState, turnDeadline: payload },
       };
     case Type.SET_ROUND_RESULT:
       return {

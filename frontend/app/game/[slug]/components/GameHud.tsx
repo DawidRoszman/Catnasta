@@ -10,6 +10,7 @@ import {
   Layers,
   PawPrint,
   Sparkles,
+  Timer,
   Trash2,
   Trophy,
   WifiOff,
@@ -267,6 +268,13 @@ function ActionDock({
             ? `Waiting for ${game.gameState.player2.name} to come back…`
             : STATUS[phase](game)}
         </p>
+        {game.gameState.turnDeadline !== null && (
+          <TurnClock
+            key={game.gameState.turnDeadline}
+            deadline={game.gameState.turnDeadline}
+            mine={phase !== "opponent"}
+          />
+        )}
         <div className="flex flex-wrap items-center justify-center gap-2">
           {phase === "draw" && (
             <>
@@ -354,6 +362,34 @@ function WaitingRoom({
           </Button>
         </div>
       </Panel>
+    </div>
+  );
+}
+
+/** Time left in the current turn, with a bar that drains to the deadline. */
+function TurnClock({ deadline, mine }: { deadline: number; mine: boolean }) {
+  const seconds = useSecondsUntil(deadline);
+  // Measured once; the bar drains in CSS.
+  const [total] = useState(() => Math.max(0, (deadline - Date.now()) / 1000));
+  const urgent = seconds <= 10;
+  return (
+    <div
+      id="turn-timer"
+      role="timer"
+      aria-label={`${seconds} seconds left in ${mine ? "your" : "this"} turn`}
+      className={cn(
+        "relative flex h-9 items-center gap-1.5 overflow-hidden rounded-xl px-3 font-mono text-sm font-semibold tabular-nums ring-1",
+        urgent ? "bg-coral/15 text-coral ring-coral/50" : "bg-white/5 text-cream ring-line",
+        urgent && mine && "animate-pulse",
+      )}
+    >
+      <Timer className="h-4 w-4" aria-hidden />
+      {`${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`}
+      <span
+        aria-hidden
+        className={cn("absolute inset-x-0 bottom-0 h-0.5 origin-left", urgent ? "bg-coral" : "bg-brass")}
+        style={{ animation: `drain ${total}s linear forwards` }}
+      />
     </div>
   );
 }
@@ -522,6 +558,10 @@ export function RulesModal({ open, onClose }: { open: boolean; onClose: () => vo
               your total.
             </li>
             <li>Rounds continue until someone reaches the table&apos;s target score.</li>
+            <li>
+              On a timed table, running out of time draws a card for you (if you hadn&apos;t yet) and
+              discards your lowest card.
+            </li>
             <li>A meld of seven or more cards is a <b className="text-brass">Catnasta</b>.</li>
             <li>Red threes score 100 bonus points; a black three on the pile blocks it.</li>
             <li>

@@ -1,6 +1,7 @@
 // Registers an opponent through the API and deals a table in their name,
 // so a single browser can join it and start a two-player game.
-// Pass PRIVATE: "true" to deal a private table that stays out of the lobby.
+// Pass PRIVATE: "true" to deal a private table that stays out of the lobby,
+// and TURN_SECONDS (30, 60 or 90) to time each turn.
 const headers = { "Content-Type": "application/json" };
 const opponent = "rival" + Date.now().toString(36);
 
@@ -17,6 +18,7 @@ const table = http.post(API_URL + "/create_game", {
   body: JSON.stringify({
     name: opponent,
     private: typeof PRIVATE !== "undefined" && PRIVATE === "true",
+    turnSeconds: typeof TURN_SECONDS !== "undefined" ? Number(TURN_SECONDS) : 0,
   }),
 });
 const id = json(table.body).id;

@@ -132,7 +132,7 @@
 // uuid ships as ESM only, which Jest's CommonJS runtime can't load.
 jest.mock("uuid", () => ({ v4: () => require("crypto").randomUUID() }));
 
-import { getMinimumFirstMeldPoints } from "../game";
+import { getMinimumFirstMeldPoints, lowestCardToDiscard } from "../game";
 import {
   DEFAULT_SETTINGS,
   discardCardDispatch,
@@ -141,6 +141,7 @@ import {
   meldCardDispatch,
   parseTableSettings,
   pickUpPileDispatch,
+  startRoundDispatch,
 } from "../gameService";
 import { Broker } from "../socket";
 import { Card, GameState, Player, Rank, Suit } from "../types/types";
@@ -325,9 +326,14 @@ describe("table settings", () => {
 
   test("fill in defaults and reject values out of range", () => {
     expect(parseTableSettings({})).toEqual(DEFAULT_SETTINGS);
-    expect(parseTableSettings({ winningScore: 1000, roundBreakSeconds: 5 })).toEqual({
+    expect(parseTableSettings({ winningScore: 1000, roundBreakSeconds: 5, turnSeconds: 60 })).toEqual({
       winningScore: 1000,
       roundBreakSeconds: 5,
+      turnSeconds: 60,
+    });
+    expect(parseTableSettings({ turnSeconds: 0 })).toEqual(DEFAULT_SETTINGS);
+    expect(parseTableSettings({ turnSeconds: 45 })).toEqual({
+      error: "Time per turn must be off or 30, 60, 90 seconds",
     });
     expect(parseTableSettings({ winningScore: 100 })).toEqual({
       error: "Points to win must be a whole number from 500 to 20000",
@@ -339,7 +345,7 @@ describe("table settings", () => {
   test("a table's own target and break decide when rounds and the game end", async () => {
     const last = card(Rank.FOUR);
     const { broker, gameState, ofType } = setup({
-      settings: { winningScore: 1000, roundBreakSeconds: 3 },
+      settings: { winningScore: 1000, roundBreakSeconds: 3, turnSeconds: null },
       hasDrawn: true,
       player1: player("ann", { total: 200, melds: [cards(7, Rank.KING)], hand: [last] }),
     });
@@ -351,5 +357,91 @@ describe("table settings", () => {
     expect(gameState.round).toBe(1);
     jest.advanceTimersByTime(1);
     expect(gameState.round).toBe(2);
+  });
+});
+
+describe("turn timer", () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  const timed = (overrides: Partial<GameState> = {}) =>
+    setup({
+      gameStarted: false,
+      turn: "",
+      settings: { ...DEFAULT_SETTINGS, turnSeconds: 30 },
+      ...overrides,
+    });
+
+  test("discards the lowest card from three up, keeping wild cards", () => {
+    const hand = [card(Rank.KING), card(Rank.TWO), card(Rank.FIVE), card(Rank.THREE, Suit.CLUB)];
+    expect(lowestCardToDiscard(hand)?.rank).toBe(Rank.THREE);
+    expect(lowestCardToDiscard([card(Rank.ACE), card(Rank.TEN)])?.rank).toBe(Rank.TEN);
+    expect(lowestCardToDiscard([card(Rank.TWO), { id: "j", rank: "JOKER", suit: Suit.HEART }])?.rank).toBe(
+      Rank.TWO,
+    );
+  });
+
+  test("a turn that runs out draws a card, discards the lowest and passes the turn", async () => {
+    const { broker, gameState, ofType } = timed();
+    startRoundDispatch(broker, gameState, msg("ann"), {} as any);
+    const starter = gameState.turn;
+    const other = starter === "ann" ? "bob" : "ann";
+    const start = ofType("GAME_START")[0].msg;
+    expect(start.turn_deadline).toBe(Date.now() + 30_000);
+
+    const seat = starter === "ann" ? gameState.player1 : gameState.player2;
+    const before = seat.hand.length;
+    const lowest = lowestCardToDiscard([...seat.hand, gameState.stock[0]])!;
+    jest.advanceTimersByTime(29_999);
+    expect(gameState.turn).toBe(starter);
+    jest.advanceTimersByTime(1);
+    await Promise.resolve();
+
+    expect(ofType("TURN_TIMEOUT")[0].msg).toMatchObject({ player: starter });
+    expect(gameState.discardPile.at(-1)!.rank).toBe(lowest.rank);
+    expect(seat.hand).toHaveLength(before);
+    expect(gameState.turn).toBe(other);
+    expect(ofType("TURN").at(-1)!.msg).toMatchObject({
+      current_player: other,
+      turn_deadline: Date.now() + 30_000,
+    });
+  });
+
+  test("a player who already drew only has the lowest card discarded", async () => {
+    const { broker, gameState } = timed();
+    startRoundDispatch(broker, gameState, msg("ann"), {} as any);
+    const starter = gameState.turn;
+    drawCardDispatch(broker, gameState, msg(starter));
+    const seat = starter === "ann" ? gameState.player1 : gameState.player2;
+    const stock = gameState.stock.length;
+    const handAfterDraw = seat.hand.length;
+    jest.advanceTimersByTime(30_000);
+    await Promise.resolve();
+    expect(gameState.stock).toHaveLength(stock);
+    expect(seat.hand).toHaveLength(handAfterDraw - 1);
+  });
+
+  test("discarding in time restarts the clock for the next player", async () => {
+    const { broker, gameState, ofType } = timed();
+    startRoundDispatch(broker, gameState, msg("ann"), {} as any);
+    const starter = gameState.turn;
+    drawCardDispatch(broker, gameState, msg(starter));
+    jest.advanceTimersByTime(20_000);
+    const seat = starter === "ann" ? gameState.player1 : gameState.player2;
+    await discardCardDispatch(broker, gameState, msg(starter, { cardId: seat.hand[0].id }), {} as any, games);
+    // The first clock would have fired at 30 s; the new turn gets its own 30 s.
+    jest.advanceTimersByTime(15_000);
+    expect(ofType("TURN_TIMEOUT")).toHaveLength(0);
+    jest.advanceTimersByTime(15_000);
+    await Promise.resolve();
+    expect(ofType("TURN_TIMEOUT")).toHaveLength(1);
+  });
+
+  test("untimed tables never play for anyone", () => {
+    const { broker, gameState, ofType } = setup({ gameStarted: false, turn: "" });
+    startRoundDispatch(broker, gameState, msg("ann"), {} as any);
+    expect(ofType("GAME_START")[0].msg.turn_deadline).toBeNull();
+    jest.advanceTimersByTime(10 * 60_000);
+    expect(ofType("TURN_TIMEOUT")).toHaveLength(0);
   });
 });

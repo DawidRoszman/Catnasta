@@ -41,6 +41,8 @@ export interface TableSettings {
   winningScore: number;
   /** How long the summary of a finished round shows before the next deal. */
   roundBreakSeconds: number;
+  /** Time each player has for a turn, or null for no limit. */
+  turnSeconds: number | null;
 }
 
 export interface GameState {
@@ -49,6 +51,8 @@ export interface GameState {
   turn: string;
   /** Whether the player whose turn it is has already drawn this turn. */
   hasDrawn?: boolean;
+  /** Epoch ms when the current turn is played automatically, if turns are timed. */
+  turnDeadline?: number;
   gameOver: boolean;
   /** 1-based number of the round being played. */
   round: number;

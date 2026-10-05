@@ -647,6 +647,19 @@ export function formatCardsForMelding(
     return acc;
   }, []);
 }
+/** Ranks from cheapest to dearest to throw away when a turn runs out of time. */
+const DISCARD_ORDER = ["3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A", "2", "JOKER"];
+
+/**
+ * The card played for someone whose turn timed out: the lowest rank from three
+ * up. Wild cards go only when nothing else is left.
+ */
+export function lowestCardToDiscard(hand: (Card | Joker)[]): Card | Joker | undefined {
+  return [...hand].sort(
+    (a, b) => DISCARD_ORDER.indexOf(a.rank) - DISCARD_ORDER.indexOf(b.rank),
+  )[0];
+}
+
 export function discardCard(
   hand: (Card | Joker)[],
   cards: (Card | Joker)[],

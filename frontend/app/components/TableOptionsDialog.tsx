@@ -8,7 +8,14 @@ import type { TableOptions } from "../lib/joinGame";
 
 const WINNING_SCORES = [1000, 2500, 5000, 10000];
 const ROUND_BREAKS = [5, 10, 20, 30];
-export const DEFAULT_TABLE_OPTIONS = { private: false, winningScore: 5000, roundBreakSeconds: 10 };
+/** 0 means turns are untimed. */
+const TURN_LIMITS = [0, 30, 60, 90];
+export const DEFAULT_TABLE_OPTIONS = {
+  private: false,
+  winningScore: 5000,
+  roundBreakSeconds: 10,
+  turnSeconds: 0,
+};
 
 function Choice<T extends number>({
   label,
@@ -119,6 +126,15 @@ export function TableOptionsDialog({
           value={options.roundBreakSeconds}
           format={(seconds) => `${seconds}s`}
           onChange={(seconds) => set("roundBreakSeconds", seconds)}
+        />
+        <Choice
+          id="turn-limit"
+          label="Time per turn"
+          hint="When time runs out, a card is drawn if needed and the lowest card is discarded."
+          options={TURN_LIMITS}
+          value={options.turnSeconds}
+          format={(seconds) => (seconds === 0 ? "Off" : `${seconds}s`)}
+          onChange={(seconds) => set("turnSeconds", seconds)}
         />
         <button
           type="button"

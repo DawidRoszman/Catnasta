@@ -140,7 +140,7 @@ broker.onMessage(async (topic, message) => {
           }),
         );
         if (gameState.player1.name && gameState.player2.name) {
-          startRoundDispatch(broker, gameState, msg);
+          startRoundDispatch(broker, gameState, msg, mongoClient);
         }
         lifecycle.sync(game);
         break;

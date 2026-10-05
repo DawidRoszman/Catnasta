@@ -49,6 +49,7 @@ function createInitialGame({ gameId, username }: { gameId: string; username: str
       winningScore: 5000,
       gameOver: false,
       turn: null,
+      turnDeadline: null,
       canDraw: false,
       canDiscard: false,
       canMeld: false,
@@ -158,10 +159,19 @@ export function GameContextProvider({
             type: Type.SET_CURRENT_PLAYER,
             payload: msg.current_player,
           });
+          dispatch({ type: Type.SET_TURN_DEADLINE, payload: msg.turn_deadline ?? null });
           // Rejoining mid-turn: the server remembers whether we already drew.
           if (msg.has_drawn && msg.current_player === username) {
             dispatch({ type: Type.PLAYER_DRAW_CARD, payload: { name: username } });
           }
+          break;
+        case "TURN_TIMEOUT":
+          toast(
+            msg.player === username
+              ? "Time's up — a card was drawn for you and your lowest card discarded."
+              : `${msg.player} ran out of time, so a card was played for them.`,
+            { tone: msg.player === username ? "error" : undefined, title: "Turn timed out" },
+          );
           break;
         case "PRESENCE":
           if (msg.player !== username) {

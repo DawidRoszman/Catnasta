@@ -144,6 +144,15 @@ export function DetailedRulesModal({ open, onClose }: { open: boolean; onClose: 
           />
         </Section>
 
+        <Section title="Turn timer">
+          <p>
+            The host can give each turn a time limit of 30, 60 or 90 seconds when dealing the table.
+            If your time runs out, a card is drawn for you from the stock (unless you already drew)
+            and your <B>lowest card</B> is discarded — the cheapest rank from three up, keeping Twos
+            and Jokers unless nothing else is left. Then it&apos;s your opponent&apos;s turn.
+          </p>
+        </Section>
+
         <Section title="Taking the discard pile">
           <p>Instead of drawing from the stock you may take the entire discard pile into your hand if:</p>
           <ul className="list-disc space-y-1.5 pl-5">
