@@ -852,6 +852,28 @@ export function minimumFirstMeld(total: number) {
 }
 
 /**
+ * The card shown on top of a finished catnasta, squared up as at a real table:
+ * a red natural for a clean one, a black card for a dirty one (a black natural,
+ * else a black Two, else a Joker), and a Joker for one made only of wild cards.
+ */
+export function catnastaTopCard(meld: PlayingCard[]): PlayingCard {
+  const naturals = meld.filter((card) => !isWild(card));
+  if (naturals.length === 0) {
+    return meld.find(isJoker) ?? meld[meld.length - 1];
+  }
+  const red = (card: PlayingCard) => isRedSuit(card.suit);
+  if (naturals.length === meld.length) {
+    return naturals.find(red) ?? naturals[0];
+  }
+  return (
+    naturals.find((card) => !red(card)) ??
+    meld.find((card) => card.rank === "2" && !red(card)) ??
+    meld.find(isJoker) ??
+    naturals[0]
+  );
+}
+
+/**
  * Why the litterbox pile can't be taken right now, or null when it can,
  * mirroring the server: the top card is melded at once with two naturals
  * from the hand, so the pile needs those naturals and a card left to discard.
