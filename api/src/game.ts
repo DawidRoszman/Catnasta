@@ -197,8 +197,10 @@ export const getMeldPoints = (meld: (Card | Joker)[]): number => {
 };
 
 export const getMinimumFirstMeldPoints = (score: number): number => {
-  if (score < 1500) {
+  if (score < 500) {
     return 30;
+  } else if (score < 1500) {
+    return 50;
   } else if (score < 3000) {
     return 90;
   } else {

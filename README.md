@@ -59,7 +59,8 @@ Each round, player's initial meld **must score a minimum number of points**. Thi
 
 | Current Score  | Min Score for First Meld |
 | -------------- | ------------------------ |
-| Below 1500     | 30                       |
+| Below 500      | 30                       |
+| 500 to 1500    | 50                       |
 | 1500 to 3000   | 90                       |
 | 3000 and above | 120                      |
 

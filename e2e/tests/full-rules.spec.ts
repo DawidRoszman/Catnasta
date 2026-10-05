@@ -13,7 +13,8 @@ test("read the full rules", async ({ page }) => {
 
   // The rules scroll inside the dialog; each section can be brought into view.
   for (const text of [
-    "Total below 1,500",
+    "Total below 500",
+    "Total 500 – 1,495",
     "Total 1,500 – 2,995",
     "One meld of each rank",
     "Rounds and winning",

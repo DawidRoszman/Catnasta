@@ -837,14 +837,16 @@ export function isBlackThree(card: PlayingCard) {
 
 /** First-meld thresholds by banked total, mirroring the server. */
 export const FIRST_MELD_MINIMUMS: { label: string; points: number }[] = [
-  { label: "Below 1,500", points: 30 },
+  { label: "Below 500", points: 30 },
+  { label: "500 – 1,495", points: 50 },
   { label: "1,500 – 2,995", points: 90 },
   { label: "3,000 or more", points: 120 },
 ];
 
 /** Points your first melds of a round must reach, given your banked total. */
 export function minimumFirstMeld(total: number) {
-  if (total < 1500) return 30;
+  if (total < 500) return 30;
+  if (total < 1500) return 50;
   if (total < 3000) return 90;
   return 120;
 }
