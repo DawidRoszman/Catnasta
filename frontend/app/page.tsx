@@ -49,7 +49,7 @@ const STEPS = [
   },
   {
     title: "Discard",
-    body: "End your turn by discarding one card. Go out first, or simply score the most points.",
+    body: "End your turn by discarding one card. Rounds repeat until someone banks 5,000 points.",
   },
 ];
 
@@ -118,8 +118,8 @@ export default function Home() {
             ))}
           </ul>
           <p className="mt-6 text-sm text-muted">
-            Collect all four red threes for a 400 point bonus — but if you haven&apos;t melded by the
-            end of the round, red threes count against you.
+            Every red three is laid out as soon as you get it and scores 100 points, whether or not
+            you&apos;ve melded.
           </p>
         </div>
       </section>

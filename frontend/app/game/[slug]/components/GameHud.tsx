@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -22,8 +22,9 @@ import { useToast } from "@/app/components/ui/Feedback";
 import Spinner from "@/app/components/ui/Spinner";
 import { cn } from "@/app/lib/cn";
 import type { Game } from "./gameReducer";
+import { FIRST_MELD_MINIMUMS, minimumFirstMeld } from "@/app/lib/cards/draw";
 
-export type Phase = "loading" | "waiting" | "draw" | "play" | "opponent" | "over" | "closed";
+export type Phase = "loading" | "waiting" | "draw" | "play" | "opponent" | "round" | "over" | "closed";
 
 type GameHudProps = {
   game: Game;
@@ -59,13 +60,19 @@ export default function GameHud(props: GameHudProps) {
           <PlayerPlate
             label="You"
             name={player1.name}
+            total={player1.total}
             score={player1.score}
             active={phase === "draw" || phase === "play"}
           />
-          <StockPlate count={game.gameState.stockCardCount} />
+          <StockPlate
+            count={game.gameState.stockCardCount}
+            round={game.gameState.round}
+            winningScore={game.gameState.winningScore}
+          />
           <PlayerPlate
             label="Opponent"
             name={player2.name || "Waiting…"}
+            total={player2.total}
             score={player2.score}
             cards={player2.name ? player2.num_of_cards_in_hand : undefined}
             active={phase === "opponent"}
@@ -90,6 +97,7 @@ export default function GameHud(props: GameHudProps) {
       {phase === "waiting" && (
         <WaitingRoom code={game.gameId} opponent={player2.name} onLeave={props.onLeave} />
       )}
+      <RoundOverModal game={game} open={phase === "round"} />
       <GameOverModal game={game} open={phase === "over"} />
       <TableClosedModal open={phase === "closed"} host={player2.name} />
       <RulesModal open={rulesOpen} onClose={() => setRulesOpen(false)} />
@@ -133,6 +141,7 @@ function GameCode({ code }: { code: string }) {
 function PlayerPlate({
   label,
   name,
+  total,
   score,
   cards,
   active,
@@ -140,6 +149,7 @@ function PlayerPlate({
 }: {
   label: string;
   name: string;
+  total: number;
   score: number;
   cards?: number;
   active: boolean;
@@ -178,16 +188,36 @@ function PlayerPlate({
         <p className="truncate text-sm font-semibold text-cream">{name}</p>
       </div>
       <div className="text-right leading-tight">
-        <p className="font-display text-lg font-semibold tabular-nums text-cream">{score}</p>
+        <p className="font-display text-lg font-semibold tabular-nums text-cream" title="Total from finished rounds">
+          {total}
+        </p>
+        <p className="text-[11px] tabular-nums text-muted" title="Score in this round so far">
+          {score >= 0 ? "+" : ""}
+          {score} this round
+        </p>
         {cards !== undefined && <p className="text-[11px] text-muted">{cards} cards</p>}
       </div>
     </div>
   );
 }
 
-function StockPlate({ count }: { count: number }) {
+function StockPlate({
+  count,
+  round,
+  winningScore,
+}: {
+  count: number;
+  round: number;
+  winningScore: number;
+}) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-xl bg-surface/85 px-3 ring-1 ring-line backdrop-blur-md">
+    <div
+      className="flex flex-col items-center justify-center rounded-xl bg-surface/85 px-3 ring-1 ring-line backdrop-blur-md"
+      title={`First to ${winningScore.toLocaleString()} points wins`}
+    >
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-brass" id="round-number">
+        Round {round}
+      </p>
       <Layers className="h-4 w-4 text-muted" aria-hidden />
       <p className="font-display text-base font-semibold tabular-nums" id="stock-count">
         {count < 0 ? "–" : count}
@@ -197,10 +227,13 @@ function StockPlate({ count }: { count: number }) {
   );
 }
 
-const STATUS: Record<Exclude<Phase, "loading" | "waiting" | "over" | "closed">, (opponent: string) => string> = {
+const STATUS: Record<"draw" | "play" | "opponent", (game: Game) => string> = {
   draw: () => "Your turn — draw from the stock or take the discard pile",
-  play: () => "Select cards to meld, then discard one to end your turn",
-  opponent: (opponent) => `${opponent} is thinking…`,
+  play: ({ gameState }) =>
+    gameState.player1.melds.length === 0
+      ? `Your first melds need ${minimumFirstMeld(gameState.player1.total)} points — or just discard`
+      : "Select cards to meld, then discard one to end your turn",
+  opponent: ({ gameState }) => `${gameState.player2.name} is thinking…`,
 };
 
 function ActionDock({
@@ -215,7 +248,7 @@ function ActionDock({
   onDiscard,
   onClearSelection,
 }: GameHudProps) {
-  if (phase === "loading" || phase === "waiting" || phase === "over" || phase === "closed") {
+  if (phase !== "draw" && phase !== "play" && phase !== "opponent") {
     return null;
   }
   return (
@@ -232,7 +265,7 @@ function ActionDock({
           )}
           {phase === "opponent" && !game.opponentPresence.online
             ? `Waiting for ${game.gameState.player2.name} to come back…`
-            : STATUS[phase](game.gameState.player2.name)}
+            : STATUS[phase](game)}
         </p>
         <div className="flex flex-wrap items-center justify-center gap-2">
           {phase === "draw" && (
@@ -325,6 +358,75 @@ function WaitingRoom({
   );
 }
 
+function useSecondsUntil(epochMs: number | undefined) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!epochMs) {
+      return;
+    }
+    const id = setInterval(() => setNow(Date.now()), 250);
+    return () => clearInterval(id);
+  }, [epochMs]);
+  return epochMs ? Math.max(0, Math.ceil((epochMs - now) / 1000)) : 0;
+}
+
+function RoundOverModal({ game, open }: { game: Game; open: boolean }) {
+  const result = game.roundResult;
+  const seconds = useSecondsUntil(open ? result?.nextRoundAt : undefined);
+  if (!result) {
+    return null;
+  }
+  const me = game.gameState.player1.name;
+  const rows = [...result.results].sort((a, b) => (a.name === me ? -1 : b.name === me ? 1 : 0));
+  const target = game.gameState.winningScore;
+  return (
+    <Modal
+      open={open}
+      dismissible={false}
+      title={`Round ${result.round} complete`}
+      description={`First to ${target.toLocaleString()} points wins the game.`}
+      footer={
+        <p className="flex items-center gap-2 text-sm text-muted" id="next-round-countdown">
+          <Spinner className="h-3.5 w-3.5" />
+          {seconds > 0 ? `Dealing round ${result.round + 1} in ${seconds}s…` : "Dealing…"}
+        </p>
+      }
+    >
+      <table className="w-full text-left text-sm" id="round-results">
+        <thead>
+          <tr className="text-xs uppercase tracking-wider text-muted">
+            <th className="pb-2 font-semibold">Player</th>
+            <th className="pb-2 text-right font-semibold">This round</th>
+            <th className="pb-2 text-right font-semibold">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.name} className="border-t border-line/60">
+              <td className="py-2 font-semibold text-cream">
+                {row.name}
+                {row.name === me && <span className="ml-1.5 text-xs font-normal text-muted">(you)</span>}
+              </td>
+              <td
+                className={cn(
+                  "py-2 text-right font-mono tabular-nums",
+                  row.points < 0 ? "text-coral" : "text-mint",
+                )}
+              >
+                {row.points >= 0 ? "+" : ""}
+                {row.points}
+              </td>
+              <td className="py-2 text-right font-display text-xl font-semibold tabular-nums text-brass">
+                {row.total}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </Modal>
+  );
+}
+
 function GameOverModal({ game, open }: { game: Game; open: boolean }) {
   const router = useRouter();
   const { winner, loser, reason, forfeitedBy } = game.gameResult;
@@ -414,7 +516,12 @@ export function RulesModal({ open, onClose }: { open: boolean; onClose: () => vo
           <h3 className="mb-2 font-semibold text-cream">Good to know</h3>
           <ul className="list-disc space-y-1.5 pl-5">
             <li>Twos and Jokers are wild — at most three per meld, never more than the naturals.</li>
-            <li>Your first melds must be worth at least 50 points.</li>
+            <li>
+              Your first melds each round need{" "}
+              {FIRST_MELD_MINIMUMS.map(({ points }) => points).join(" / ")} points, depending on
+              your total.
+            </li>
+            <li>Rounds continue until someone reaches 5,000 points.</li>
             <li>A meld of seven or more cards is a <b className="text-brass">Catnasta</b>.</li>
             <li>Red threes score 100 bonus points; a black three on the pile blocks it.</li>
             <li>

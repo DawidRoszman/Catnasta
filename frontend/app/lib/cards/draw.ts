@@ -835,6 +835,22 @@ export function isBlackThree(card: PlayingCard) {
   return card.rank === "3" && (card.suit === "CLUB" || card.suit === "SPADE");
 }
 
+/** First-meld thresholds by banked total, mirroring the server. */
+export const FIRST_MELD_MINIMUMS: { label: string; points: number }[] = [
+  { label: "Below 0", points: 15 },
+  { label: "0 – 1,495", points: 50 },
+  { label: "1,500 – 2,995", points: 90 },
+  { label: "3,000 or more", points: 120 },
+];
+
+/** Points your first melds of a round must reach, given your banked total. */
+export function minimumFirstMeld(total: number) {
+  if (total < 0) return 15;
+  if (total < 1500) return 50;
+  if (total < 3000) return 90;
+  return 120;
+}
+
 /** Sorts a hand by rank (aces high) then suit, with wild cards at the end. */
 export function sortHand(cards: PlayingCard[]) {
   return [...cards].sort(

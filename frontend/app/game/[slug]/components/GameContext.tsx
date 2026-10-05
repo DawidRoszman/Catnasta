@@ -43,7 +43,10 @@ function createInitialGame({ gameId, username }: { gameId: string; username: str
     },
     opponentPresence: { online: true, forfeitAt: null },
     closed: false,
+    roundResult: null,
     gameState: {
+      round: 1,
+      winningScore: 5000,
       gameOver: false,
       turn: null,
       canDraw: false,
@@ -55,6 +58,7 @@ function createInitialGame({ gameId, username }: { gameId: string; username: str
         melds: [],
         red_threes: [],
         score: 0,
+        total: 0,
       },
       player2: {
         name: "",
@@ -62,6 +66,7 @@ function createInitialGame({ gameId, username }: { gameId: string; username: str
         melds: [],
         red_threes: [],
         score: 0,
+        total: 0,
       },
       discardPileTopCard: null,
       discardPileCount: 0,
@@ -100,6 +105,7 @@ export function GameContextProvider({
         gameState: fresh.gameState,
         gameResult: fresh.gameResult,
         opponentPresence: fresh.opponentPresence,
+        roundResult: null,
         closed: false,
       },
     });
@@ -145,6 +151,8 @@ export function GameContextProvider({
           });
           break;
         case "GAME_START":
+          dispatch({ type: Type.NEW_ROUND, payload: msg.round ?? 1 });
+        // falls through
         case "TURN":
           dispatch({
             type: Type.SET_CURRENT_PLAYER,
@@ -236,15 +244,32 @@ export function GameContextProvider({
           break;
         case "UPDATE_SCORE": {
           const mine = msg.player1Score.name === username;
+          const [me, them] = mine
+            ? [msg.player1Score, msg.player2Score]
+            : [msg.player2Score, msg.player1Score];
           dispatch({
             type: Type.UPDATE_SCORE,
             payload: {
-              player1Score: mine ? msg.player1Score.score : msg.player2Score.score,
-              player2Score: mine ? msg.player2Score.score : msg.player1Score.score,
+              player1Score: me.score,
+              player2Score: them.score,
+              player1Total: me.total ?? 0,
+              player2Total: them.total ?? 0,
+              round: msg.round,
+              winningScore: msg.winning_score,
             },
           });
           break;
         }
+        case "ROUND_END":
+          dispatch({
+            type: Type.SET_ROUND_RESULT,
+            payload: {
+              round: msg.round,
+              results: msg.results,
+              nextRoundAt: msg.next_round_at,
+            },
+          });
+          break;
         case "GAME_END":
           dispatch({
             type: Type.SET_GAME_RESULT,

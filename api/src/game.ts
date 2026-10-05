@@ -3,6 +3,11 @@ import { getStartingCards, deck, getCardPoints } from "./cards";
 const MIN_CARDS_FOR_MELD = 3;
 
 export const startRound = (gameState: GameState): void => {
+  for (const player of [gameState.player1, gameState.player2]) {
+    player.melds = [];
+    player.red_threes = [];
+    player.score = 0;
+  }
   const startingCards = getStartingCards(deck);
   dealCards(gameState, startingCards);
 
@@ -88,10 +93,12 @@ export const drawCard = (
   //while card is a red three draw another and push three to player table
   while (card.rank === "3" && card.suit.match(/(HEART|DIAMOND)/)) {
     player.red_threes.push(card);
-    card = cards.shift();
-    if (card === undefined) {
-      throw new Error("This should not happen");
+    const next = cards.shift();
+    if (next === undefined) {
+      // The stock ran out on a red three; there is nothing left to replace it.
+      return;
     }
+    card = next;
   }
   player.hand.push(card);
   return card;

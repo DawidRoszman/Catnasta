@@ -77,8 +77,8 @@ export function createLifecycle(broker: Broker, mongoClient: MongoClient) {
       `catnasta/game/${game.gameId}`,
       JSON.stringify({
         type: "GAME_END",
-        winner: { name: winnerState.name, points: winnerState.score },
-        loser: { name: loserState.name, points: loserState.score },
+        winner: { name: winnerState.name, points: winnerState.total },
+        loser: { name: loserState.name, points: loserState.total },
         reason,
         forfeited_by: loser,
       }),

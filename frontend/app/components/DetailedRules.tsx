@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { BookOpen } from "lucide-react";
 import { Button } from "./ui/Button";
 import { Modal } from "./ui/Modal";
+import { FIRST_MELD_MINIMUMS } from "../lib/cards/draw";
 
 const CARD_VALUES: [string, string][] = [
   ["Joker", "50"],
@@ -119,9 +120,9 @@ export function DetailedRulesModal({ open, onClose }: { open: boolean; onClose: 
               Catnasta.
             </li>
             <li>
-              Your <B>first meld</B> of the round must be worth <B>at least 50 points</B>. You may lay
-              down several melds at once to reach it. A meld is worth its lowest card value times the
-              number of cards.
+              Your <B>first melds</B> each round must reach a minimum that depends on your total from
+              earlier rounds (see the table below). You may lay down several melds at once to reach it.
+              A meld is worth its lowest card value times the number of cards.
             </li>
             <li>
               You must <B>keep at least one card</B> in your hand after melding, so you can discard.
@@ -136,6 +137,13 @@ export function DetailedRulesModal({ open, onClose }: { open: boolean; onClose: 
           </ul>
         </Section>
 
+        <Section title="First meld minimum">
+          <PointsTable
+            rows={FIRST_MELD_MINIMUMS.map(({ label, points }) => [`Total ${label.toLowerCase()}`, String(points)])}
+            label="First meld minimum by total score"
+          />
+        </Section>
+
         <Section title="Taking the discard pile">
           <p>Instead of drawing from the stock you may take the entire discard pile into your hand if:</p>
           <ul className="list-disc space-y-1.5 pl-5">
@@ -145,15 +153,22 @@ export function DetailedRulesModal({ open, onClose }: { open: boolean; onClose: 
           </ul>
         </Section>
 
-        <Section title="End of the game">
-          <p>A game is a single round. It ends when a player discards and either:</p>
+        <Section title="Rounds and winning">
+          <p>A round ends when a player discards and either:</p>
           <ul className="list-disc space-y-1.5 pl-5">
             <li>
               <B>goes out</B> — has no cards left in hand, or
             </li>
             <li>the last card of the stock has been drawn.</li>
           </ul>
-          <p>Both hands are then scored, and the higher score wins.</p>
+          <p>
+            Both hands are scored and added to each player&apos;s total. The cards are then reshuffled
+            and a new round is dealt, with the other player taking the first turn.
+          </p>
+          <p>
+            The game ends after the round in which a player&apos;s total reaches <B>5,000 points</B>.
+            The higher total wins.
+          </p>
         </Section>
 
         <Section title="Card values">
@@ -170,6 +185,7 @@ export function DetailedRulesModal({ open, onClose }: { open: boolean; onClose: 
             <B>Without a Catnasta</B>, your melds count against you: your score is minus the value of
             your melded cards, minus the value of your hand, plus 100 for each red three.
           </p>
+          <p>Red threes are always worth 100 each — there is no extra bonus for collecting all four.</p>
         </Section>
 
         <Section title="Leaving and disconnecting">

@@ -5,15 +5,21 @@ import {
   drawCard,
   formatCardsForMelding,
   getMeldPoints,
+  getMinimumFirstMeldPoints,
   meldCards,
   startRound,
   pickUpPile,
 } from "./game";
-import { Game, GameState } from "./types/types";
+import { Game, GameState, Player, RoundResult } from "./types/types";
 import { MongoClient } from "mongodb";
 import { Broker } from "./socket";
 
 export const games: Game[] = [];
+
+/** Rounds are played until a player's total reaches this. */
+export const WINNING_SCORE = Number(process.env.WINNING_SCORE ?? 5000);
+/** How long the summary of a finished round shows before the next deal. */
+export const ROUND_BREAK_MS = Number(process.env.ROUND_BREAK_SECONDS ?? 10) * 1000;
 
 /** The lobby listing: every table except private ones. */
 export const gameListPayload = () =>
@@ -43,18 +49,25 @@ export function startRoundDispatch(
 ) {
   if (!gameState.gameStarted) {
     startRound(gameState);
-    const playerTurn =
+    gameState.roundStarter =
       Math.random() < 0.5 ? gameState.player1.name : gameState.player2.name;
-    gameState.turn = playerTurn;
+    gameState.turn = gameState.roundStarter;
     gameState.hasDrawn = false;
     gameState.gameStarted = true;
   }
+  publishTable(client, msg.id, gameState);
+}
+
+/** Sends everything a player needs to draw the table, e.g. after a deal or a rejoin. */
+function publishTable(client: Broker, gameId: string, gameState: GameState) {
+  const msg = { id: gameId };
   client.publish(
     `catnasta/game/${msg.id}`,
     JSON.stringify({
       type: "GAME_START",
       current_player: gameState.turn,
       has_drawn: gameState.hasDrawn ?? false,
+      round: gameState.round,
     }),
   );
   client.publish(
@@ -128,14 +141,96 @@ export function startRoundDispatch(
       }),
     );
   }
+  publishScores(client, gameId, gameState);
+  if (gameState.roundBreak) {
+    publishRoundEnd(client, gameId, gameState.roundBreak);
+  }
+}
+
+function publishScores(client: Broker, gameId: string, gameState: GameState) {
+  const score = ({ name, score, total }: Player) => ({ name, score, total });
   client.publish(
-    `catnasta/game/${msg.id}`,
+    `catnasta/game/${gameId}`,
     JSON.stringify({
       type: "UPDATE_SCORE",
-      player1Score: { name: gameState.player1.name, score: gameState.player1.score },
-      player2Score: { name: gameState.player2.name, score: gameState.player2.score },
+      player1Score: score(gameState.player1),
+      player2Score: score(gameState.player2),
+      round: gameState.round,
+      winning_score: WINNING_SCORE,
     }),
   );
+}
+
+function publishRoundEnd(client: Broker, gameId: string, result: RoundResult) {
+  client.publish(
+    `catnasta/game/${gameId}`,
+    JSON.stringify({
+      type: "ROUND_END",
+      round: result.round,
+      results: result.results,
+      next_round_at: result.nextRoundAt,
+    }),
+  );
+}
+
+/**
+ * Banks the round's scores. Ends the game once someone reaches the winning
+ * score, otherwise shows the round summary and deals the next round.
+ */
+async function endRound(
+  client: Broker,
+  gameId: string,
+  gameState: GameState,
+  mongoClient: MongoClient,
+) {
+  const players = [gameState.player1, gameState.player2];
+  const results = players.map((player) => {
+    player.total += player.score;
+    return { name: player.name, points: player.score, total: player.total };
+  });
+  gameState.turn = "";
+  gameState.hasDrawn = false;
+  publishScores(client, gameId, gameState);
+
+  if (players.some((player) => player.total >= WINNING_SCORE)) {
+    gameState.gameOver = true;
+    const [winner, loser] =
+      gameState.player1.total > gameState.player2.total ? players : [...players].reverse();
+    client.publish(
+      `catnasta/game/${gameId}`,
+      JSON.stringify({
+        type: "GAME_END",
+        winner: { name: winner.name, points: winner.total },
+        loser: { name: loser.name, points: loser.total },
+      }),
+    );
+    removeGame(client, gameId);
+    await mongoClient.connect();
+    mongoClient.db("catnasta").collection("games").insertOne(gameState);
+    return;
+  }
+
+  gameState.roundBreak = {
+    round: gameState.round,
+    results,
+    nextRoundAt: Date.now() + ROUND_BREAK_MS,
+  };
+  publishRoundEnd(client, gameId, gameState.roundBreak);
+  setTimeout(() => {
+    const game = games.find((game) => game.gameId === gameId);
+    if (game?.gameState !== gameState || gameState.gameOver) {
+      return;
+    }
+    gameState.roundBreak = undefined;
+    gameState.round += 1;
+    startRound(gameState);
+    gameState.roundStarter =
+      gameState.roundStarter === gameState.player1.name
+        ? gameState.player2.name
+        : gameState.player1.name;
+    gameState.turn = gameState.roundStarter;
+    publishTable(client, gameId, gameState);
+  }, ROUND_BREAK_MS);
 }
 
 export const drawCardDispatch = (
@@ -169,18 +264,8 @@ export const drawCardDispatch = (
   }
   const currPlayer =
     msg.name === gameState.player1.name ? gameState.player1 : gameState.player2;
-  if (
-    currPlayer.hand.length + currPlayer.melds.flatMap((c) => c).length >=
-    16
-  ) {
-    console.log("too many cards");
-    return;
-  }
   drawCard(gameState.stock, currPlayer);
   gameState.hasDrawn = true;
-  if (gameState.stock.length === 0) {
-    gameState.gameOver = true;
-  }
   client.publish(
     `catnasta/game/${msg.id}/${msg.name}`,
     JSON.stringify({
@@ -307,6 +392,11 @@ export const discardCardDispatch = async (
       enemy_hand: player.hand.length,
     }),
   );
+  // The round ends when a player goes out or the last stock card has been drawn.
+  if (player.hand.length === 0 || gameState.stock.length === 0) {
+    await endRound(client, msg.id, gameState, mongoClient);
+    return;
+  }
   client.publish(
     `catnasta/game/${msg.id}`,
     JSON.stringify({
@@ -314,43 +404,7 @@ export const discardCardDispatch = async (
       current_player: newTurn,
     }),
   );
-  client.publish(
-    `catnasta/game/${msg.id}`,
-    JSON.stringify({
-      type: "UPDATE_SCORE",
-      player1Score: {
-        name: gameState.player1.name,
-        score: gameState.player1.score,
-      },
-      player2Score: {
-        name: gameState.player2.name,
-        score: gameState.player2.score,
-      },
-    }),
-  );
-  if (player.hand.length === 0 || gameState.gameOver) {
-    const winner =
-      p1Score.points > p2Score.points
-        ? gameState.player1.name
-        : gameState.player2.name;
-    const loser =
-      p1Score.points > p2Score.points
-        ? gameState.player2.name
-        : gameState.player1.name;
-    client.publish(
-      `catnasta/game/${msg.id}`,
-      JSON.stringify({
-        type: "GAME_END",
-        winner: winner === gameState.player1.name ? p1Score : p2Score,
-        loser: loser === gameState.player1.name ? p1Score : p2Score,
-      }),
-    );
-    await mongoClient.connect();
-    mongoClient.db("catnasta").collection("games").insertOne(gameState);
-    removeGame(client, msg.id);
-
-    return;
-  }
+  publishScores(client, msg.id, gameState);
 };
 
 export const meldCardDispatch = (
@@ -392,13 +446,15 @@ export const meldCardDispatch = (
     return;
   }
   const meldPoints = melds.reduce((acc, meld) => acc + getMeldPoints(meld), 0);
-  if (meldPoints < 50 && currPlayer.melds.length === 0) {
+  // The opening requirement grows with the points banked in earlier rounds.
+  const minimum = getMinimumFirstMeldPoints(currPlayer.total);
+  if (meldPoints < minimum && currPlayer.melds.length === 0) {
     console.log("wrong meld");
     client.publish(
       `catnasta/game/${msg.id}/${msg.name}`,
       JSON.stringify({
         type: "MELD_ERROR",
-        message: "You need to have at least 50 points in your first melds",
+        message: `Your first melds need at least ${minimum} points`,
       }),
     );
     return;

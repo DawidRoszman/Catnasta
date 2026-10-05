@@ -573,12 +573,14 @@ app.post("/create_game", async (req: Request, res: Response) => {
       turn: "",
       gameOver: false,
       gameStarted: false,
+      round: 1,
       player1: {
         name: name,
         hand: [],
         melds: [],
         red_threes: [],
         score: 0,
+        total: 0,
       },
       player2: {
         name: "",
@@ -586,6 +588,7 @@ app.post("/create_game", async (req: Request, res: Response) => {
         melds: [],
         red_threes: [],
         score: 0,
+        total: 0,
       },
       stock: [],
       discardPile: [],

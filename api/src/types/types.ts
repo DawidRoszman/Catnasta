@@ -28,7 +28,10 @@ export interface Player {
   hand: (Card | Joker)[];
   melds: (Card | Joker)[][];
   red_threes: (Card | Joker)[];
+  /** This round's score so far. */
   score: number;
+  /** Points banked from finished rounds. */
+  total: number;
   name: string;
 }
 
@@ -38,10 +41,22 @@ export interface GameState {
   /** Whether the player whose turn it is has already drawn this turn. */
   hasDrawn?: boolean;
   gameOver: boolean;
+  /** 1-based number of the round being played. */
+  round: number;
+  /** Who took the first turn this round; the other player opens the next one. */
+  roundStarter?: string;
+  /** Set between rounds, while the summary of the round just played is shown. */
+  roundBreak?: RoundResult;
   player1: Player;
   player2: Player;
   discardPile: (Card | Joker)[];
   stock: (Card | Joker)[];
+}
+export interface RoundResult {
+  round: number;
+  results: { name: string; points: number; total: number }[];
+  /** Epoch ms when the next round is dealt. */
+  nextRoundAt: number;
 }
 export enum Rank {
   ACE = "A",

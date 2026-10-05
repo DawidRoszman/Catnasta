@@ -35,6 +35,13 @@ export type Joker = {
 
 export type EndReason = "score" | "forfeit" | "left";
 
+export type RoundResult = {
+  round: number;
+  results: { name: string; points: number; total: number }[];
+  /** Epoch ms when the next round is dealt. */
+  nextRoundAt: number;
+};
+
 export interface Game {
   gameId: string;
   gameResult: {
@@ -57,7 +64,12 @@ export interface Game {
   };
   /** The host closed the table before the game started. */
   closed: boolean;
+  /** Summary of the round just finished, shown until the next deal. */
+  roundResult: RoundResult | null;
   gameState: {
+    round: number;
+    /** First total to reach this wins the game. */
+    winningScore: number;
     gameOver: boolean;
     turn: string | null;
     canDraw: boolean;
@@ -66,6 +78,7 @@ export interface Game {
     player1: {
       name: string;
       score: number;
+      total: number;
       hand: (Card | Joker)[];
       red_threes: Card[];
       melds: (Card | Joker)[][];
@@ -74,6 +87,7 @@ export interface Game {
       name: string;
       num_of_cards_in_hand: number;
       score: number;
+      total: number;
       red_threes: Card[];
       melds: (Card | Joker)[][];
     };
@@ -102,6 +116,8 @@ export enum Type {
   PLAYER_DRAW_CARD,
   SET_OPPONENT_PRESENCE,
   TABLE_CLOSED,
+  NEW_ROUND,
+  SET_ROUND_RESULT,
 }
 
 export interface Action {
@@ -258,6 +274,17 @@ export const gameReducer = (state: Game, action: Action): Game => {
         ...state,
         opponentPresence: payload,
       };
+    case Type.NEW_ROUND:
+      return {
+        ...state,
+        roundResult: null,
+        gameState: { ...state.gameState, round: payload },
+      };
+    case Type.SET_ROUND_RESULT:
+      return {
+        ...state,
+        roundResult: payload,
+      };
     case Type.TABLE_CLOSED:
       return {
         ...state,
@@ -268,13 +295,17 @@ export const gameReducer = (state: Game, action: Action): Game => {
         ...state,
         gameState: {
           ...state.gameState,
+          round: payload.round ?? state.gameState.round,
+          winningScore: payload.winningScore ?? state.gameState.winningScore,
           player1: {
             ...state.gameState.player1,
             score: payload.player1Score,
+            total: payload.player1Total,
           },
           player2: {
             ...state.gameState.player2,
             score: payload.player2Score,
+            total: payload.player2Total,
           },
         },
       };

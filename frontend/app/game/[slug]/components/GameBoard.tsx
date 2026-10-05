@@ -37,6 +37,8 @@ export default function GameBoard() {
       ? "closed"
       : gameState.gameOver
       ? "over"
+      : game.roundResult
+      ? "round"
       : !gameState.player2.name || gameState.turn === null
         ? "waiting"
         : !myTurn
@@ -97,7 +99,9 @@ export default function GameBoard() {
     toast(
       phase === "opponent"
         ? `Hold your whiskers — it's ${gameState.player2.name}'s turn.`
-        : "The game hasn't started yet.",
+        : phase === "round"
+          ? "The next round is being dealt."
+          : "The game hasn't started yet.",
     );
   };
 

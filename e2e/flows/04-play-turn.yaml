@@ -25,8 +25,12 @@ name: Join a table and play a turn on the 3D board
 
 - assertVisible: "Your turn — draw from the stock or take the discard pile"
 - takeScreenshot: play-turn-1-draw
+- assertVisible:
+    id: "round-number"
+- assertVisible: "Round 1"
 - tapOn: "Draw"
-- assertVisible: "Select cards to meld, then discard one to end your turn"
+# Nothing banked yet, so the first melds need the standard 50 points.
+- assertVisible: "Your first melds need 50 points — or just discard"
 
 # Click a card in the middle of the fanned hand on the 3D table.
 - tapOn:
