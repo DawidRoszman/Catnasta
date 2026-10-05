@@ -4,7 +4,7 @@ export const API_URL = process.env.API_URL ?? "http://localhost:5001";
 
 const unique = () => Date.now().toString(36) + Math.floor(Math.random() * 1000);
 
-export const YOUR_TURN = "Your turn — draw from the stock or take the discard pile";
+export const YOUR_TURN = "Your turn — draw from the stock or take the litterbox pile";
 
 /** Signs up a fresh user and leaves the page on the home page, signed in. */
 export async function register(page: Page) {

@@ -34,7 +34,7 @@ type GameHudProps = {
   stagedCount: number;
   onDraw: () => void;
   onPickUp: () => void;
-  /** Why the discard pile can't be taken, or null when it can. */
+  /** Why the litterbox pile can't be taken, or null when it can. */
   pileProblem: string | null;
   onStageMeld: () => void;
   onConfirmMelds: () => void;
@@ -231,7 +231,7 @@ function StockPlate({
 }
 
 const STATUS: Record<"draw" | "play" | "opponent", (game: Game) => string> = {
-  draw: () => "Your turn — draw from the stock or take the discard pile",
+  draw: () => "Your turn — draw from the stock or take the litterbox pile",
   play: ({ gameState }) =>
     gameState.player1.melds.length === 0
       ? `Your first melds need ${minimumFirstMeld(gameState.player1.total)} points — or just discard`
@@ -543,7 +543,7 @@ export function RulesModal({ open, onClose }: { open: boolean; onClose: () => vo
           <h3 className="mb-2 font-semibold text-cream">Your turn</h3>
           <ol className="list-decimal space-y-1.5 pl-5">
             <li>
-              <b className="text-cream">Draw</b> — click the stock, or take the whole discard pile.
+              <b className="text-cream">Draw</b> — click the stock, or take the whole litterbox pile.
             </li>
             <li>
               <b className="text-cream">Meld</b> — click cards in your hand to select them, stage
@@ -571,7 +571,7 @@ export function RulesModal({ open, onClose }: { open: boolean; onClose: () => vo
             </li>
             <li>A meld of seven or more cards is a <b className="text-brass">Catnasta</b>.</li>
             <li>
-              To take the discard pile you need two naturals matching its top card; those three cards
+              To take the litterbox pile you need two naturals matching its top card; those three cards
               are melded straight away.
             </li>
             <li>Red threes score 100 bonus points; a black three on the pile blocks it.</li>

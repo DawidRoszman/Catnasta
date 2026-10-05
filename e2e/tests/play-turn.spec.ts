@@ -11,7 +11,7 @@ test("join a table and play a turn on the 3D board", async ({ page }) => {
 
   const { opponent } = await joinTableOnOurTurn(page);
   await expect(page.getByText(YOUR_TURN)).toBeVisible();
-  // No melds yet, so the discard pile can't be taken.
+  // No melds yet, so the litterbox pile can't be taken.
   await expect(page.locator("#take-pile")).toBeDisabled();
   await expect(page.locator("#round-number")).toContainText("Round 1");
 

@@ -161,7 +161,7 @@ export default function GameBoard() {
       return true;
     }
     if (phase === "draw") {
-      toast("Draw a card first — from the stock or the discard pile.");
+      toast("Draw a card first — from the stock or the litterbox pile.");
     } else {
       notYourTurn();
     }

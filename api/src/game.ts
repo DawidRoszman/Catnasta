@@ -257,7 +257,7 @@ export const pickUpPile = (
   if (!canPickUpPile(player, discardPile)) {
     return { 
       success: false, 
-      message: "Cannot pick up the discard pile. Make sure you have completed your first meld and have at least two matching natural cards for the top card." 
+      message: "Cannot pick up the litterbox pile. Make sure you have completed your first meld and have at least two matching natural cards for the top card." 
     };
   }
 

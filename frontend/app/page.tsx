@@ -41,7 +41,7 @@ const SCORING: { label: string; points: string; cards: Card[] }[] = [
 const STEPS = [
   {
     title: "Draw",
-    body: "Take the top card of the stock — or, once you've melded, scoop up the whole discard pile.",
+    body: "Take the top card of the stock — or, once you've melded, scoop up the whole litterbox pile.",
   },
   {
     title: "Meld",

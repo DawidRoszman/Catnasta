@@ -93,7 +93,7 @@ function createFeltTexture() {
     ctx.restore();
   };
   spot(STOCK_POSITION.x, STOCK_POSITION.z, "STOCK");
-  spot(DISCARD_POSITION.x, DISCARD_POSITION.z, "DISCARD");
+  spot(DISCARD_POSITION.x, DISCARD_POSITION.z, "LITTERBOX");
 
   // Meld rows
   const row = (z: number, label: string) => {

@@ -12,6 +12,8 @@ export const TABLE_DEPTH = 7.4;
 
 export const STOCK_POSITION = new THREE.Vector3(3.15, 0, -0.15);
 export const DISCARD_POSITION = new THREE.Vector3(4.35, 0, -0.15);
+/** The discard pile sits in a litter box; its cards rest on the litter this high above the felt. */
+export const LITTER_LEVEL = 0.045;
 
 const MELD_AREA_LEFT = -3.9;
 const MELD_AREA_RIGHT = 2.25;
@@ -203,14 +205,14 @@ export function computeLayout(input: LayoutInput): CardPlacement[] {
     });
   });
 
-  // Top of the discard pile.
+  // Top of the discard pile, resting on the litter.
   if (input.discardTop) {
     placements.push({
       key: input.discardTop.id,
       card: input.discardTop,
       position: new THREE.Vector3(
         DISCARD_POSITION.x,
-        pileHeight(input.discardCount - 1) + 0.004,
+        LITTER_LEVEL + pileHeight(input.discardCount - 1) + 0.004,
         DISCARD_POSITION.z,
       ),
       quaternion: flatQuaternion(true, jitter(input.discardTop.id, 0.25)),

@@ -70,7 +70,7 @@ export function DetailedRulesModal({ open, onClose }: { open: boolean; onClose: 
             <B>stock</B>.
           </p>
           <p>
-            One card is turned up to start the <B>discard pile</B>. If it&apos;s a wild card or a red
+            One card is turned up to start the <B>litterbox pile</B>. If it&apos;s a wild card or a red
             three, more cards are turned until a regular card shows.
           </p>
         </Section>
@@ -86,7 +86,7 @@ export function DetailedRulesModal({ open, onClose }: { open: boolean; onClose: 
               stock.
             </li>
             <li>
-              <B>Black threes</B> can&apos;t be melded. One on top of the discard pile blocks the
+              <B>Black threes</B> can&apos;t be melded. One on top of the litterbox pile blocks the
               pile, so discarding one is a safe defensive play.
             </li>
           </ul>
@@ -95,14 +95,14 @@ export function DetailedRulesModal({ open, onClose }: { open: boolean; onClose: 
         <Section title="Your turn">
           <ol className="list-decimal space-y-1.5 pl-5">
             <li>
-              <B>Draw</B> — take the top card of the stock, <i>or</i> take the whole discard pile (see
+              <B>Draw</B> — take the top card of the stock, <i>or</i> take the whole litterbox pile (see
               below). You must draw before you can discard.
             </li>
             <li>
               <B>Meld</B> (optional) — lay down new melds and add cards to melds you already have.
             </li>
             <li>
-              <B>Discard</B> — put one card from your hand on the discard pile. This ends your turn.
+              <B>Discard</B> — put one card from your hand on the litterbox pile. This ends your turn.
             </li>
           </ol>
         </Section>
@@ -158,8 +158,8 @@ export function DetailedRulesModal({ open, onClose }: { open: boolean; onClose: 
           </p>
         </Section>
 
-        <Section title="Taking the discard pile">
-          <p>Instead of drawing from the stock you may take the entire discard pile into your hand if:</p>
+        <Section title="Taking the litterbox pile">
+          <p>Instead of drawing from the stock you may take the entire litterbox pile into your hand if:</p>
           <ul className="list-disc space-y-1.5 pl-5">
             <li>you have already made your first meld,</li>
             <li>the top card isn&apos;t a black three, a Two or a Joker, and</li>

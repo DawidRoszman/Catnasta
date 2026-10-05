@@ -850,7 +850,7 @@ export function minimumFirstMeld(total: number) {
 }
 
 /**
- * Why the discard pile can't be taken right now, or null when it can,
+ * Why the litterbox pile can't be taken right now, or null when it can,
  * mirroring the server: the top card is melded at once with two naturals
  * from the hand, so the pile needs those naturals and a card left to discard.
  */
@@ -861,10 +861,10 @@ export function pileBlocker(
   hasMelded: boolean,
 ): string | null {
   if (top === null) {
-    return "The discard pile is empty.";
+    return "The litterbox pile is empty.";
   }
   if (isBlackThree(top) || isWild(top)) {
-    return "A black three or wild card on top blocks the discard pile.";
+    return "A black three or wild card on top blocks the litterbox pile.";
   }
   if (!hasMelded) {
     return "Meld needed to take litterbox pile.";

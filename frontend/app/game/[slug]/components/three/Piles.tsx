@@ -4,7 +4,8 @@ import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { easing } from "maath";
 import { getCardGeometry, getCardTexture } from "./textures";
-import { CARD_HEIGHT, CARD_WIDTH, DISCARD_POSITION, STOCK_POSITION, pileHeight } from "./tableLayout";
+import { CARD_HEIGHT, CARD_WIDTH, DISCARD_POSITION, LITTER_LEVEL, STOCK_POSITION, pileHeight } from "./tableLayout";
+import { BOX_DEPTH, BOX_WIDTH, LitterBox } from "./LitterBox";
 
 const EDGE_COLOR = "#e9dfc9";
 
@@ -20,7 +21,17 @@ function PileBody({ height, color = EDGE_COLOR }: { height: number; color?: stri
   );
 }
 
-function ActionRing({ active, color }: { active: boolean; color: string }) {
+function ActionRing({
+  active,
+  color,
+  width = CARD_WIDTH + 0.22,
+  depth = CARD_HEIGHT + 0.22,
+}: {
+  active: boolean;
+  color: string;
+  width?: number;
+  depth?: number;
+}) {
   const material = useRef<THREE.MeshBasicMaterial>(null);
   useFrame((state, delta) => {
     if (material.current) {
@@ -30,7 +41,7 @@ function ActionRing({ active, color }: { active: boolean; color: string }) {
   });
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.002, 0]}>
-      <planeGeometry args={[CARD_WIDTH + 0.22, CARD_HEIGHT + 0.22]} />
+      <planeGeometry args={[width, depth]} />
       <meshBasicMaterial ref={material} color={color} transparent opacity={0} depthWrite={false} toneMapped={false} />
     </mesh>
   );
@@ -78,7 +89,10 @@ export function StockPile({ count, active, onClick }: PileProps) {
   );
 }
 
-/** The discard pile's body; its top card is rendered as a regular Card3D. */
+/**
+ * The discard pile: a litter box with the cards resting on the litter. Its top
+ * card is rendered as a regular Card3D. It only glows when the pile can be taken.
+ */
 export function DiscardPile({ count, active, onClick }: PileProps) {
   return (
     <group
@@ -96,11 +110,14 @@ export function DiscardPile({ count, active, onClick }: PileProps) {
         onClick();
       }}
     >
-      <ActionRing active={active} color="#6fd3b0" />
-      <PileBody height={pileHeight(count - 1)} />
-      {/* Invisible hit area so the pile is easy to click */}
-      <mesh position={[0, 0.05, 0]} visible={false}>
-        <boxGeometry args={[CARD_WIDTH + 0.1, 0.1 + pileHeight(count), CARD_HEIGHT + 0.1]} />
+      <ActionRing active={active} color="#6fd3b0" width={BOX_WIDTH + 0.2} depth={BOX_DEPTH + 0.2} />
+      <LitterBox />
+      <group position={[0, LITTER_LEVEL, 0]}>
+        <PileBody height={pileHeight(count - 1)} />
+      </group>
+      {/* Invisible hit area so the whole box is easy to click */}
+      <mesh position={[0, 0.1, 0]} visible={false}>
+        <boxGeometry args={[BOX_WIDTH, 0.2 + pileHeight(count), BOX_DEPTH]} />
       </mesh>
     </group>
   );
