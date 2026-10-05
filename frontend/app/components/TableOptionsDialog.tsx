@@ -120,24 +120,44 @@ export function TableOptionsDialog({
           format={(seconds) => `${seconds}s`}
           onChange={(seconds) => set("roundBreakSeconds", seconds)}
         />
-        <label className="flex cursor-pointer items-start gap-3 rounded-xl bg-felt-950/60 p-3.5 ring-1 ring-inset ring-line hover:ring-line-strong">
-          <input
-            type="checkbox"
-            id="private-table"
-            checked={options.private}
-            onChange={(e) => set("private", e.target.checked)}
-            className="mt-0.5 h-4 w-4 accent-brass"
-          />
-          <span>
-            <span className="flex items-center gap-1.5 text-sm font-semibold text-cream">
-              <Lock className="h-3.5 w-3.5" />
+        <button
+          type="button"
+          role="switch"
+          aria-checked={options.private}
+          id="private-table"
+          onClick={() => set("private", !options.private)}
+          className={cn(
+            "flex w-full items-start gap-3 rounded-xl p-3.5 text-left ring-inset transition-colors",
+            options.private
+              ? "bg-brass/15 ring-2 ring-brass shadow-glow"
+              : "bg-felt-950/60 ring-1 ring-line hover:ring-line-strong",
+          )}
+        >
+          <span
+            className={cn(
+              "grid h-8 w-8 shrink-0 place-items-center rounded-lg transition-colors",
+              options.private ? "bg-brass text-felt-950" : "bg-felt-600 text-cream-dim",
+            )}
+          >
+            <Lock className="h-4 w-4" aria-hidden />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="flex items-center justify-between gap-2 text-sm font-semibold text-cream">
               Private table
+              <span
+                className={cn(
+                  "text-[11px] font-semibold uppercase tracking-wider",
+                  options.private ? "text-brass" : "text-muted",
+                )}
+              >
+                {options.private ? "On" : "Off"}
+              </span>
             </span>
             <span className="text-xs text-muted">
               Hidden from the lobby. Only people with the code or invite link can join.
             </span>
           </span>
-        </label>
+        </button>
         {error && (
           <p className="text-sm text-coral" role="alert">
             {error}

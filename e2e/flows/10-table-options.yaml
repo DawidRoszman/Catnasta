@@ -29,8 +29,10 @@ name: Deal a table with custom options
 - tapOn:
     id: "table-options-button"
 - tapOn: "2,500"
+- assertVisible: "Off"
 - tapOn:
     id: "private-table"
+- assertVisible: "On"
 - tapOn: "Deal table"
 - extendedWaitUntil:
     visible:
