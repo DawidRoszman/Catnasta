@@ -521,7 +521,7 @@ export function RulesModal({ open, onClose }: { open: boolean; onClose: () => vo
               {FIRST_MELD_MINIMUMS.map(({ points }) => points).join(" / ")} points, depending on
               your total.
             </li>
-            <li>Rounds continue until someone reaches 5,000 points.</li>
+            <li>Rounds continue until someone reaches the table&apos;s target score.</li>
             <li>A meld of seven or more cards is a <b className="text-brass">Catnasta</b>.</li>
             <li>Red threes score 100 bonus points; a black three on the pile blocks it.</li>
             <li>

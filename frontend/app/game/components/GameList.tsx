@@ -1,10 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Lock, Plus, Users } from "lucide-react";
+import { Lock, Plus, SlidersHorizontal, Trophy, Users } from "lucide-react";
 import type { Game } from "../page";
 import client from "@/app/lib/socket";
-import { createGame, joinGame } from "@/app/lib/joinGame";
+import { TableOptions, createGame, joinGame } from "@/app/lib/joinGame";
+import { TableOptionsDialog } from "@/app/components/TableOptionsDialog";
 import { useUserContext } from "@/app/components/UserContext";
 import { useToast } from "@/app/components/ui/Feedback";
 import { Button } from "@/app/components/ui/Button";
@@ -14,6 +15,7 @@ import PlayingCard from "@/app/components/PlayingCard";
 const GameList = ({ games }: { games: Game[] }) => {
   const [gameList, setGameList] = useState<Game[]>(games);
   const [busy, setBusy] = useState<string | null>(null);
+  const [optionsOpen, setOptionsOpen] = useState(false);
   const router = useRouter();
   const user = useUserContext();
   const toast = useToast();
@@ -47,6 +49,14 @@ const GameList = ({ games }: { games: Game[] }) => {
     router.push("/game/" + result.id);
   };
 
+  const createWithOptions = async (options: TableOptions) => {
+    const result = await createGame(username, options);
+    if ("error" in result) {
+      return result.error;
+    }
+    router.push("/game/" + result.id);
+  };
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -58,7 +68,7 @@ const GameList = ({ games }: { games: Game[] }) => {
           <Button
             size="lg"
             variant="secondary"
-            onClick={() => go(() => createGame(username, true), "private")}
+            onClick={() => go(() => createGame(username, { private: true }), "private")}
             loading={busy === "private"}
             disabled={!username}
             title="Hidden from the lobby. Only people with the code or invite link can join."
@@ -73,7 +83,24 @@ const GameList = ({ games }: { games: Game[] }) => {
           >
             <Plus className="h-5 w-5" />New table
           </Button>
+          <Button
+            size="lg"
+            variant="secondary"
+            className="px-3.5"
+            onClick={() => setOptionsOpen(true)}
+            disabled={!username}
+            id="table-options-button"
+            aria-label="Table options"
+            title="Choose points to win, round break and privacy"
+          >
+            <SlidersHorizontal className="h-5 w-5" />
+          </Button>
         </div>
+        <TableOptionsDialog
+          open={optionsOpen}
+          onClose={() => setOptionsOpen(false)}
+          onCreate={createWithOptions}
+        />
       </div>
 
       {gameList.length === 0 ? (
@@ -100,6 +127,12 @@ const GameList = ({ games }: { games: Game[] }) => {
                 </div>
                 <p className="text-xs font-semibold uppercase tracking-wider text-muted">Table</p>
                 <p className="font-mono text-2xl font-bold tracking-[0.2em] text-brass">{game.id}</p>
+                {game.winning_score !== undefined && (
+                  <p className="mt-1 flex items-center gap-1.5 text-xs text-muted">
+                    <Trophy className="h-3.5 w-3.5" aria-hidden />
+                    First to {game.winning_score.toLocaleString()}
+                  </p>
+                )}
                 <div className="mt-4 flex items-center justify-between">
                   <Badge tone={full ? "coral" : "mint"}>
                     <Users className="h-3.5 w-3.5" />{game.players_in_game}/2

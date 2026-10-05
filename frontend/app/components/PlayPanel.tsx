@@ -1,13 +1,14 @@
 "use client";
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Lock, Plus } from "lucide-react";
+import { ArrowRight, Lock, Plus, SlidersHorizontal } from "lucide-react";
 import { useUserContext } from "./UserContext";
 import { Button, ButtonLink } from "./ui/Button";
 import { Input } from "./ui/Input";
 import { Panel } from "./ui/Panel";
 import { Skeleton } from "./ui/Skeleton";
-import { createGame, joinGame } from "../lib/joinGame";
+import { TableOptions, createGame, joinGame } from "../lib/joinGame";
+import { TableOptionsDialog } from "./TableOptionsDialog";
 
 export default function PlayPanel() {
   const user = useUserContext();
@@ -15,6 +16,7 @@ export default function PlayPanel() {
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState<"create" | "private" | "join" | null>(null);
+  const [optionsOpen, setOptionsOpen] = useState(false);
 
   if (!user?.ready) {
     return (
@@ -48,11 +50,19 @@ export default function PlayPanel() {
   const handleCreate = async (isPrivate: boolean) => {
     setBusy(isPrivate ? "private" : "create");
     setError("");
-    const result = await createGame(user.username, isPrivate);
+    const result = await createGame(user.username, { private: isPrivate });
     if ("error" in result) {
       setError(result.error);
       setBusy(null);
       return;
+    }
+    router.push("/game/" + result.id);
+  };
+
+  const handleCreateWithOptions = async (options: TableOptions) => {
+    const result = await createGame(user.username, options);
+    if ("error" in result) {
+      return result.error;
     }
     router.push("/game/" + result.id);
   };
@@ -94,7 +104,24 @@ export default function PlayPanel() {
         >
           <Lock className="h-5 w-5" />Private
         </Button>
+        <Button
+          size="lg"
+          variant="secondary"
+          className="px-3.5"
+          onClick={() => setOptionsOpen(true)}
+          disabled={busy !== null}
+          id="table-options-button"
+          aria-label="Table options"
+          title="Choose points to win, round break and privacy"
+        >
+          <SlidersHorizontal className="h-5 w-5" />
+        </Button>
       </div>
+      <TableOptionsDialog
+        open={optionsOpen}
+        onClose={() => setOptionsOpen(false)}
+        onCreate={handleCreateWithOptions}
+      />
       <div className="my-5 flex items-center gap-3 text-xs font-semibold uppercase tracking-wider text-muted">
         <span className="h-px flex-1 bg-line" /> or join with a code <span className="h-px flex-1 bg-line" />
       </div>

@@ -134,12 +134,12 @@ jest.mock("uuid", () => ({ v4: () => require("crypto").randomUUID() }));
 
 import { getMinimumFirstMeldPoints } from "../game";
 import {
-  ROUND_BREAK_MS,
-  WINNING_SCORE,
+  DEFAULT_SETTINGS,
   discardCardDispatch,
   drawCardDispatch,
   games,
   meldCardDispatch,
+  parseTableSettings,
   pickUpPileDispatch,
 } from "../gameService";
 import { Broker } from "../socket";
@@ -168,6 +168,7 @@ const setup = (overrides: Partial<GameState> = {}) => {
     onSubscriptionChange: () => {},
   };
   const gameState: GameState = {
+    settings: { ...DEFAULT_SETTINGS },
     gameStarted: true,
     gameOver: false,
     round: 1,
@@ -269,7 +270,7 @@ describe("rounds", () => {
     drawCardDispatch(broker, gameState, msg("bob"));
     expect(gameState.player2.hand).toHaveLength(3);
 
-    jest.advanceTimersByTime(ROUND_BREAK_MS);
+    jest.advanceTimersByTime(DEFAULT_SETTINGS.roundBreakSeconds * 1000);
     expect(gameState.round).toBe(2);
     expect(gameState.roundBreak).toBeUndefined();
     expect(gameState.turn).toBe("bob");
@@ -298,7 +299,7 @@ describe("rounds", () => {
     const { broker, gameState, ofType, mongo, insertOne } = setup({
       hasDrawn: true,
       player1: player("ann", {
-        total: WINNING_SCORE - 100,
+        total: DEFAULT_SETTINGS.winningScore - 100,
         melds: [cards(7, Rank.KING)],
         hand: [last],
       }),
@@ -309,11 +310,46 @@ describe("rounds", () => {
     expect(ofType("ROUND_END")).toHaveLength(0);
     expect(ofType("GAME_END")[0].msg).toEqual({
       type: "GAME_END",
-      winner: { name: "ann", points: WINNING_SCORE + 570 },
+      winner: { name: "ann", points: DEFAULT_SETTINGS.winningScore + 570 },
       loser: { name: "bob", points: 2970 },
     });
     expect(gameState.gameOver).toBe(true);
     expect(games).toHaveLength(0);
     expect(insertOne).toHaveBeenCalled();
+  });
+});
+
+describe("table settings", () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  test("fill in defaults and reject values out of range", () => {
+    expect(parseTableSettings({})).toEqual(DEFAULT_SETTINGS);
+    expect(parseTableSettings({ winningScore: 1000, roundBreakSeconds: 5 })).toEqual({
+      winningScore: 1000,
+      roundBreakSeconds: 5,
+    });
+    expect(parseTableSettings({ winningScore: 100 })).toEqual({
+      error: "Points to win must be a whole number from 500 to 20000",
+    });
+    expect(parseTableSettings({ roundBreakSeconds: 2.5 })).toHaveProperty("error");
+    expect(parseTableSettings({ winningScore: "5000" })).toHaveProperty("error");
+  });
+
+  test("a table's own target and break decide when rounds and the game end", async () => {
+    const last = card(Rank.FOUR);
+    const { broker, gameState, ofType } = setup({
+      settings: { winningScore: 1000, roundBreakSeconds: 3 },
+      hasDrawn: true,
+      player1: player("ann", { total: 200, melds: [cards(7, Rank.KING)], hand: [last] }),
+    });
+    await discardCardDispatch(broker, gameState, msg("ann", { cardId: last.id }), {} as any, games);
+    // 870 is short of the 1000 target, so another round follows after 3 seconds.
+    expect(ofType("ROUND_END")).toHaveLength(1);
+    expect(ofType("UPDATE_SCORE").at(-1)!.msg.winning_score).toBe(1000);
+    jest.advanceTimersByTime(2999);
+    expect(gameState.round).toBe(1);
+    jest.advanceTimersByTime(1);
+    expect(gameState.round).toBe(2);
   });
 });

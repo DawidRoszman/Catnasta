@@ -8,6 +8,7 @@ import {
   drawCardDispatch,
   gameListPayload,
   games,
+  parseTableSettings,
   meldCardDispatch,
   pickUpPileDispatch,
   publishGameList,
@@ -565,11 +566,16 @@ app.post("/create_game", async (req: Request, res: Response) => {
   if (!name) {
     return res.send({ msg: "Please log in to create game" });
   }
+  const settings = parseTableSettings(req.body);
+  if ("error" in settings) {
+    return res.send({ msg: settings.error });
+  }
   const id = Math.random().toString(36).substring(2, 8).toUpperCase();
   const game: Game = {
     gameId: id,
     private: req.body.private === true,
     gameState: {
+      settings,
       turn: "",
       gameOver: false,
       gameStarted: false,

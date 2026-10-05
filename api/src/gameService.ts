@@ -10,21 +10,46 @@ import {
   startRound,
   pickUpPile,
 } from "./game";
-import { Game, GameState, Player, RoundResult } from "./types/types";
+import { Game, GameState, Player, RoundResult, TableSettings } from "./types/types";
 import { MongoClient } from "mongodb";
 import { Broker } from "./socket";
 
 export const games: Game[] = [];
 
-/** Rounds are played until a player's total reaches this. */
-export const WINNING_SCORE = Number(process.env.WINNING_SCORE ?? 5000);
-/** How long the summary of a finished round shows before the next deal. */
-export const ROUND_BREAK_MS = Number(process.env.ROUND_BREAK_SECONDS ?? 10) * 1000;
+export const DEFAULT_SETTINGS: TableSettings = {
+  winningScore: Number(process.env.WINNING_SCORE ?? 5000),
+  roundBreakSeconds: Number(process.env.ROUND_BREAK_SECONDS ?? 10),
+};
+
+const SETTING_LIMITS: Record<keyof TableSettings, { min: number; max: number; label: string }> = {
+  winningScore: { min: 500, max: 20000, label: "Points to win" },
+  roundBreakSeconds: { min: 3, max: 60, label: "Break between rounds" },
+};
+
+/** Validates the settings a host asked for, filling in defaults for anything left out. */
+export function parseTableSettings(
+  body: Partial<Record<keyof TableSettings, unknown>>,
+): TableSettings | { error: string } {
+  const settings = { ...DEFAULT_SETTINGS };
+  for (const key of Object.keys(SETTING_LIMITS) as (keyof TableSettings)[]) {
+    const value = body[key];
+    if (value === undefined || value === null) {
+      continue;
+    }
+    const { min, max, label } = SETTING_LIMITS[key];
+    if (typeof value !== "number" || !Number.isInteger(value) || value < min || value > max) {
+      return { error: `${label} must be a whole number from ${min} to ${max}` };
+    }
+    settings[key] = value;
+  }
+  return settings;
+}
 
 /** The lobby listing: every table except private ones. */
 export const gameListPayload = () =>
   games.filter((game) => !game.private).map((game) => ({
     id: game.gameId,
+    winning_score: game.gameState.settings.winningScore,
     players_in_game:
       game.gameState.player1.name && game.gameState.player2.name ? 2 : 1,
   }));
@@ -156,7 +181,7 @@ function publishScores(client: Broker, gameId: string, gameState: GameState) {
       player1Score: score(gameState.player1),
       player2Score: score(gameState.player2),
       round: gameState.round,
-      winning_score: WINNING_SCORE,
+      winning_score: gameState.settings.winningScore,
     }),
   );
 }
@@ -192,7 +217,7 @@ async function endRound(
   gameState.hasDrawn = false;
   publishScores(client, gameId, gameState);
 
-  if (players.some((player) => player.total >= WINNING_SCORE)) {
+  if (players.some((player) => player.total >= gameState.settings.winningScore)) {
     gameState.gameOver = true;
     const [winner, loser] =
       gameState.player1.total > gameState.player2.total ? players : [...players].reverse();
@@ -210,10 +235,11 @@ async function endRound(
     return;
   }
 
+  const breakMs = gameState.settings.roundBreakSeconds * 1000;
   gameState.roundBreak = {
     round: gameState.round,
     results,
-    nextRoundAt: Date.now() + ROUND_BREAK_MS,
+    nextRoundAt: Date.now() + breakMs,
   };
   publishRoundEnd(client, gameId, gameState.roundBreak);
   setTimeout(() => {
@@ -230,7 +256,7 @@ async function endRound(
         : gameState.player1.name;
     gameState.turn = gameState.roundStarter;
     publishTable(client, gameId, gameState);
-  }, ROUND_BREAK_MS);
+  }, breakMs);
 }
 
 export const drawCardDispatch = (

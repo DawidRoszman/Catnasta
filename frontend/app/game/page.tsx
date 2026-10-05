@@ -11,6 +11,8 @@ export const metadata: Metadata = { title: "Lobby" };
 export interface Game {
   id: string;
   players_in_game: number;
+  /** Total that wins the game at this table. */
+  winning_score?: number;
 }
 
 const Lobby = async () => {

@@ -35,7 +35,16 @@ export interface Player {
   name: string;
 }
 
+/** Chosen by the host when the table is dealt. */
+export interface TableSettings {
+  /** First total to reach this wins the game. */
+  winningScore: number;
+  /** How long the summary of a finished round shows before the next deal. */
+  roundBreakSeconds: number;
+}
+
 export interface GameState {
+  settings: TableSettings;
   gameStarted: boolean;
   turn: string;
   /** Whether the player whose turn it is has already drawn this turn. */

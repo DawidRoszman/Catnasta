@@ -49,7 +49,7 @@ const STEPS = [
   },
   {
     title: "Discard",
-    body: "End your turn by discarding one card. Rounds repeat until someone banks 5,000 points.",
+    body: "End your turn by discarding one card. Rounds repeat until someone banks 5,000 points — or your own target.",
   },
 ];
 

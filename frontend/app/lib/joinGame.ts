@@ -20,15 +20,22 @@ export const joinGame = async (
   }
 };
 
-/** Private tables stay out of the lobby; only the code or invite link gets you in. */
+export type TableOptions = {
+  /** Private tables stay out of the lobby; only the code or invite link gets you in. */
+  private?: boolean;
+  winningScore?: number;
+  roundBreakSeconds?: number;
+};
+
+/** Deals a table; options left out use the server's defaults. */
 export const createGame = async (
   username: string,
-  isPrivate = false,
+  options: TableOptions = {},
 ): Promise<{ id: string } | { error: string }> => {
   try {
     const response = await axios.post(api + "/create_game", {
       name: username,
-      private: isPrivate,
+      ...options,
     });
     if (response.data.id === undefined) {
       return { error: response.data.msg ?? "Couldn't create a table." };

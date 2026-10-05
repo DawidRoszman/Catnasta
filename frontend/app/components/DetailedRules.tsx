@@ -166,8 +166,8 @@ export function DetailedRulesModal({ open, onClose }: { open: boolean; onClose: 
             and a new round is dealt, with the other player taking the first turn.
           </p>
           <p>
-            The game ends after the round in which a player&apos;s total reaches <B>5,000 points</B>.
-            The higher total wins.
+            The game ends after the round in which a player&apos;s total reaches <B>5,000 points</B>{" "}
+            — or the target the host picked when dealing the table. The higher total wins.
           </p>
         </Section>
 

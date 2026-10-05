@@ -1,0 +1,45 @@
+url: http://localhost:3000
+name: Deal a table with custom options
+---
+- launchApp:
+    clearState: true
+- openLink: ${BASE_URL}
+- runFlow: ../subflows/register.yaml
+
+# A public table to 1,000 points with a short break shows its target in the lobby.
+- tapOn:
+    id: "table-options-button"
+- assertVisible: "Table options"
+- assertVisible: "Points to win"
+- tapOn: "1,000"
+- tapOn: "5s"
+- tapOn: "Deal table"
+- extendedWaitUntil:
+    visible:
+      id: "waiting-room"
+    timeout: 15000
+- copyTextFrom:
+    id: "game-code"
+- openLink: ${BASE_URL}/game
+- assertVisible: "Open tables"
+- assertVisible: ${maestro.copiedText}
+- assertVisible: "First to 1,000"
+
+# The same dialog deals private tables, which stay out of the lobby.
+- tapOn:
+    id: "table-options-button"
+- tapOn: "2,500"
+- tapOn:
+    id: "private-table"
+- tapOn: "Deal table"
+- extendedWaitUntil:
+    visible:
+      id: "waiting-room"
+    timeout: 15000
+- copyTextFrom:
+    id: "game-code"
+- openLink: ${BASE_URL}/game
+- assertVisible: "Open tables"
+- waitForAnimationToEnd
+- assertNotVisible: ${maestro.copiedText}
+- assertNotVisible: "First to 2,500"
