@@ -82,13 +82,24 @@ function createFeltTexture() {
     ctx.lineTo(k + H + unit * 0.03, 0);
     ctx.stroke();
   }
-  for (let row = 0; row * (step / 2) < H + step; row++) {
-    for (let k = (row % 2) * (step / 2); k < W + step; k += step) {
-      const tuft = ctx.createRadialGradient(k, row * (step / 2), 0, k, row * (step / 2), unit * 0.09);
+  // A tuft where each pair of seams crosses. The seams start at x = -H, so
+  // (x, y) = (-H/2 + i·step/2, H/2 + j·step/2) with i and j both even or both odd.
+  const half = step / 2;
+  for (let j = -Math.ceil(H / step) - 1; H / 2 + j * half <= H + half; j++) {
+    const y = H / 2 + j * half;
+    for (let i = -Math.ceil(H / half) - 2; -H / 2 + i * half <= W + half; i++) {
+      if ((i - j) % 2 !== 0) {
+        continue;
+      }
+      const x = -H / 2 + i * half;
+      if (x < -half || y < -half) {
+        continue;
+      }
+      const tuft = ctx.createRadialGradient(x, y, 0, x, y, unit * 0.09);
       tuft.addColorStop(0, "rgba(0,0,0,0.28)");
       tuft.addColorStop(1, "rgba(0,0,0,0)");
       ctx.fillStyle = tuft;
-      ctx.fillRect(k - unit * 0.1, row * (step / 2) - unit * 0.1, unit * 0.2, unit * 0.2);
+      ctx.fillRect(x - unit * 0.1, y - unit * 0.1, unit * 0.2, unit * 0.2);
     }
   }
   ctx.restore();
