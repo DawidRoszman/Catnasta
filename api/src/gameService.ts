@@ -616,8 +616,8 @@ function publishPickup(client: Broker, gameId: string, gameState: GameState, pla
 /**
  * Ends the current player's turn and hands it to the other player. If the
  * litterbox's top card matches one of that player's catnastas they must take
- * the pile: the card joins the catnasta, the rest goes into their hand, and
- * their turn is skipped, so it comes straight back.
+ * the pile in place of their draw: the card joins the catnasta and the rest
+ * goes into their hand, then they meld and discard as usual.
  */
 function passTurn(client: Broker, gameId: string, gameState: GameState, mongoClient: MongoClient) {
   const other = (name: string) => (name === gameState.player1.name ? gameState.player2 : gameState.player1);
@@ -633,7 +633,7 @@ function passTurn(client: Broker, gameId: string, gameState: GameState, mongoCli
       `catnasta/game/${gameId}`,
       JSON.stringify({ type: "PILE_FORCED", player: next.name, card: top }),
     );
-    gameState.turn = other(next.name).name;
+    gameState.hasDrawn = true;
   }
 
   gameState.player1.score = calculatePlayerScore(gameState.player1).points;
@@ -644,6 +644,7 @@ function passTurn(client: Broker, gameId: string, gameState: GameState, mongoCli
     JSON.stringify({
       type: "TURN",
       current_player: gameState.turn,
+      has_drawn: gameState.hasDrawn,
       turn_deadline: gameState.turnDeadline ?? null,
     }),
   );
@@ -871,7 +872,7 @@ export const pickUpPileDispatch = (
     );
     return;
   }
-  // Taking the pile is the whole turn: the top card has gone to the table and the turn passes.
+  // Taking the pile counts as the draw; the player still melds and discards to end the turn.
+  gameState.hasDrawn = true;
   publishPickup(client, msg.id, gameState, player);
-  passTurn(client, msg.id, gameState, mongoClient);
 };

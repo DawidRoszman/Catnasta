@@ -96,7 +96,7 @@ export function DetailedRulesModal({ open, onClose }: { open: boolean; onClose: 
           <ol className="list-decimal space-y-1.5 pl-5">
             <li>
               <B>Draw</B> — take the top card of the stock, <i>or</i> take the whole litterbox pile (see
-              below), which ends your turn there and then. You must draw before you can discard.
+              below). You must draw before you can discard.
             </li>
             <li>
               <B>Meld</B> (optional) — lay down new melds and add cards to melds you already have.
@@ -169,14 +169,14 @@ export function DetailedRulesModal({ open, onClose }: { open: boolean; onClose: 
           <p>
             The top card and two of those naturals are <B>melded at once</B> — joining your meld of
             that rank if you have one — and the rest of the pile goes into your hand. You must still
-            have a card left in hand. <B>Taking the pile ends your turn</B> — no melding or discarding
-            after it.
+            have a card left to discard: taking the pile counts as your draw, so you go on to meld and
+            then <B>discard to end your turn</B>.
           </p>
           <p>
             <B>Top card matches one of your catnastas?</B> Then you <B>must</B> take the pile when your
-            turn comes: the card goes straight onto your catnasta, the rest of the pile into your hand,
-            and your turn is skipped. So think twice before discarding a card that matches your
-            opponent&apos;s catnasta.
+            turn comes, instead of drawing: the card goes straight onto your catnasta and the rest of
+            the pile into your hand. Then meld and discard as usual. So think twice before discarding a
+            card that matches your opponent&apos;s catnasta.
           </p>
         </Section>
 

@@ -290,11 +290,11 @@ export const pickUpPile = (
 
   const naturals = player.hand.filter((card) => card.rank === topCard.rank).slice(0, 2);
   // The top card and the two naturals it was taken with go straight to the table,
-  // and the hand mustn't be left empty.
+  // so something has to be left in hand to discard.
   if (player.hand.length - naturals.length + discardPile.length - 1 === 0) {
     return {
       success: false,
-      message: "You'd have no cards left in hand after melding the top card.",
+      message: "You'd have no card left to discard after melding the top card.",
     };
   }
 

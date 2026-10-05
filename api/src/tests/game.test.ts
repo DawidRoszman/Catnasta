@@ -352,8 +352,9 @@ describe("taking the discard pile", () => {
     pickUpPileDispatch(broker, gameState, msg("ann"));
 
     expect(ofType("PICKUP_ERROR")).toHaveLength(0);
-    // Taking the pile ends the turn.
-    expect(gameState.turn).toBe("bob");
+    // Taking the pile is the draw; the turn goes on until a discard.
+    expect(gameState.turn).toBe("ann");
+    expect(gameState.hasDrawn).toBe(true);
     expect(gameState.player1.melds).toHaveLength(1);
     expect(gameState.player1.melds[0]).toHaveLength(8);
     expect(gameState.player1.melds[0].at(-1)).toBe(top);
@@ -406,24 +407,27 @@ describe("taking the discard pile", () => {
 });
 
 describe("turns around the litterbox", () => {
-  test("taking the pile with a pair ends the turn: no meld or discard after it", () => {
+  test("after taking the pile with a pair the player still has to discard to end the turn", async () => {
     const nines = cards(2, Rank.NINE);
     const { broker, gameState, ofType } = setup({
       player1: player("ann", { melds: [cards(3, Rank.ACE)], hand: [...nines, card(Rank.FOUR)] }),
       discardPile: [card(Rank.SIX), card(Rank.NINE)],
     });
     pickUpPileDispatch(broker, gameState, msg("ann"));
-    expect(gameState.turn).toBe("bob");
-    expect(gameState.hasDrawn).toBe(false);
-    expect(ofType("TURN").at(-1)!.msg.current_player).toBe("bob");
+    expect(gameState.turn).toBe("ann");
+    expect(gameState.hasDrawn).toBe(true);
+    expect(ofType("TURN")).toHaveLength(0);
 
-    // Ann can't carry on with her turn.
+    // No second draw, but the discard ends the turn.
     const handBefore = gameState.player1.hand.length;
-    discardCardDispatch(broker, gameState, msg("ann", { cardId: gameState.player1.hand[0].id }), {} as any, games);
+    drawCardDispatch(broker, gameState, msg("ann"));
     expect(gameState.player1.hand).toHaveLength(handBefore);
+    await discardCardDispatch(broker, gameState, msg("ann", { cardId: gameState.player1.hand[0].id }), {} as any, games);
+    expect(gameState.player1.hand).toHaveLength(handBefore - 1);
+    expect(gameState.turn).toBe("bob");
   });
 
-  test("discarding a card that matches the opponent's catnasta hands them the pile and skips their turn", async () => {
+  test("discarding a card that matches the opponent's catnasta makes them take the pile as their draw", async () => {
     const eight = card(Rank.EIGHT, Suit.CLUB);
     const catnasta = cards(7, Rank.EIGHT);
     const bobHand = cards(3, Rank.QUEEN);
@@ -439,11 +443,13 @@ describe("turns around the litterbox", () => {
     expect(gameState.player2.melds[0].at(-1)).toBe(eight);
     expect(gameState.player2.hand.map(({ rank }) => rank).sort()).toEqual(["6", "K", "Q", "Q", "Q"]);
     expect(gameState.discardPile).toEqual([]);
-    // Bob's turn was spent taking the pile, so it's Ann's turn again.
-    expect(gameState.turn).toBe("ann");
-    expect(gameState.hasDrawn).toBe(false);
+    // The pile was Bob's draw: he goes on to meld and discard.
+    expect(gameState.turn).toBe("bob");
+    expect(gameState.hasDrawn).toBe(true);
     expect(ofType("PILE_FORCED")[0].msg).toMatchObject({ player: "bob", card: eight });
-    expect(ofType("TURN").map(({ msg }) => msg.current_player)).toEqual(["ann"]);
+    expect(ofType("TURN").map(({ msg }) => msg)).toEqual([
+      expect.objectContaining({ current_player: "bob", has_drawn: true }),
+    ]);
   });
 
   test("a card that doesn't match the catnasta's rank leaves the turn alone", async () => {

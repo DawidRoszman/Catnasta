@@ -187,8 +187,8 @@ export function GameContextProvider({
         case "PILE_FORCED":
           toast(
             msg.player === username
-              ? "Your catnasta took the litterbox pile, so your turn was skipped."
-              : `${msg.player}'s catnasta took the litterbox pile, so their turn was skipped.`,
+              ? "Your catnasta took the litterbox pile. Meld if you like, then discard to end your turn."
+              : `${msg.player}'s catnasta took the litterbox pile.`,
             { title: "Litterbox taken" },
           );
           break;
