@@ -1,16 +1,16 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { Volume1, Volume2, VolumeX } from "lucide-react";
+import { Music, Volume1, Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/app/components/ui/Button";
 import { useIsClient } from "@/app/lib/useIsClient";
 
 const TRACK = "/music/upbeat-catyong.m4a";
 const STORAGE_KEY = "catnasta:music";
-const DEFAULT_SETTINGS = { volume: 0.4, isMuted: false };
+const DEFAULT_SETTINGS = { volume: 0.4, isMuted: false, isMusicOff: false };
 
 type MusicSettings = typeof DEFAULT_SETTINGS;
 
-function loadSettings(): MusicSettings {
+export function loadSettings(): MusicSettings {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "null");
     return { ...DEFAULT_SETTINGS, ...saved };
@@ -27,7 +27,10 @@ function saveSettings(settings: MusicSettings) {
   }
 }
 
-/** Background music with a mute toggle and volume slider; settings persist per browser. */
+/**
+ * Background music with a music toggle, plus a mute toggle and volume slider that
+ * also govern sound effects; settings persist per browser.
+ */
 export default function MusicControl() {
   // Settings come from localStorage, so render only after hydration.
   return useIsClient() ? <MusicPlayer /> : null;
@@ -36,12 +39,12 @@ export default function MusicControl() {
 function MusicPlayer() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [settings, setSettings] = useState(loadSettings);
-  const { volume, isMuted } = settings;
+  const { volume, isMuted, isMusicOff } = settings;
 
   useEffect(() => {
     const audio = audioRef.current!;
     audio.volume = settings.volume;
-    audio.muted = settings.isMuted;
+    audio.muted = settings.isMuted || settings.isMusicOff;
     saveSettings(settings);
   }, [settings]);
 
@@ -74,11 +77,23 @@ function MusicPlayer() {
         variant="ghost"
         size="icon"
         id="mute-button"
-        onClick={() => setSettings({ volume: volume === 0 ? DEFAULT_SETTINGS.volume : volume, isMuted: !isSilent })}
-        aria-label={isSilent ? "Unmute music" : "Mute music"}
+        onClick={() =>
+          setSettings({ ...settings, volume: volume === 0 ? DEFAULT_SETTINGS.volume : volume, isMuted: !isSilent })
+        }
+        aria-label={isSilent ? "Unmute sound" : "Mute sound"}
         aria-pressed={isSilent}
       >
         <Icon className="h-5 w-5" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        id="music-button"
+        onClick={() => setSettings({ ...settings, isMusicOff: !isMusicOff })}
+        aria-label={isMusicOff ? "Turn music on" : "Turn music off"}
+        aria-pressed={isMusicOff}
+      >
+        <Music className={isMusicOff ? "h-5 w-5 opacity-40" : "h-5 w-5"} />
       </Button>
       <input
         type="range"
@@ -87,8 +102,8 @@ function MusicPlayer() {
         max={1}
         step={0.05}
         value={isMuted ? 0 : volume}
-        onChange={(event) => setSettings({ volume: Number(event.target.value), isMuted: false })}
-        aria-label="Music volume"
+        onChange={(event) => setSettings({ ...settings, volume: Number(event.target.value), isMuted: false })}
+        aria-label="Sound volume"
         className="w-20 cursor-pointer accent-brass sm:w-24"
       />
     </div>

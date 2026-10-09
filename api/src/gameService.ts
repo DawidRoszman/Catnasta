@@ -1,4 +1,5 @@
 import {
+  CATNASTA_SIZE,
   DEFAULT_HAND_SIZE,
   addToMeld,
   calculatePlayerScore,
@@ -466,6 +467,7 @@ export const drawCardDispatch = (
     msg.name === gameState.player1.name ? gameState.player1 : gameState.player2;
   drawCard(gameState.stock, currPlayer);
   gameState.hasDrawn = true;
+  publishMove(client, msg.id, { player: currPlayer.name, move: "draw" });
   client.publish(
     `catnasta/game/${msg.id}/${msg.name}`,
     JSON.stringify({
@@ -551,6 +553,7 @@ export const discardCardDispatch = async (
   const player =
     msg.name === gameState.player1.name ? gameState.player1 : gameState.player2;
   discardCard(player.hand, gameState.discardPile, msg.cardId);
+  publishMove(client, msg.id, { player: player.name, move: "discard" });
   const opponent =
     player.name === gameState.player1.name
       ? gameState.player2.name
@@ -596,6 +599,36 @@ export const discardCardDispatch = async (
   }
   passTurn(client, msg.id, gameState, mongoClient);
 };
+
+type Move = { player: string; move: "draw" | "discard" } | { player: string; move: "meld"; hasMadeCatnasta: boolean };
+
+/** Tells both tables what a player just did, so each can play the matching sound. */
+function publishMove(client: Broker, gameId: string, { player, move, ...details }: Move) {
+  client.publish(
+    `catnasta/game/${gameId}`,
+    JSON.stringify({
+      type: "MOVE",
+      player,
+      move,
+      has_made_catnasta: "hasMadeCatnasta" in details ? details.hasMadeCatnasta : false,
+    }),
+  );
+}
+
+const countCatnastas = (player: Player) => player.melds.filter((meld) => meld.length >= CATNASTA_SIZE).length;
+
+/** What a meld is measured against: whether any card left the hand, and whether a catnasta was finished. */
+const meldSnapshot = (player: Player) => ({ handSize: player.hand.length, catnastas: countCatnastas(player) });
+
+function publishMeld(client: Broker, gameId: string, player: Player, before: ReturnType<typeof meldSnapshot>) {
+  if (player.hand.length < before.handSize) {
+    publishMove(client, gameId, {
+      player: player.name,
+      move: "meld",
+      hasMadeCatnasta: countCatnastas(player) > before.catnastas,
+    });
+  }
+}
 
 /**
  * Shows both tables a player's pile pickup. The hand and litterbox go first so
@@ -737,6 +770,7 @@ export const meldCardDispatch = (
     );
     return;
   }
+  const beforeMeld = meldSnapshot(currPlayer);
   melds.forEach((meld) => {
     const error = meldCards(currPlayer.hand, currPlayer.melds, meld);
     if (error !== undefined) {
@@ -751,6 +785,7 @@ export const meldCardDispatch = (
       return;
     }
   });
+  publishMeld(client, msg.id, currPlayer, beforeMeld);
   client.publish(
     `catnasta/game/${msg.id}/${msg.name}`,
     JSON.stringify({
@@ -833,6 +868,7 @@ export const dispatchAddToMeld = (
     );
     return;
   }
+  const beforeMeld = meldSnapshot(currPlayer);
   const error = addToMeld(currPlayer, msg.meldId, cards);
   if (error !== undefined) {
     console.log(error);
@@ -845,6 +881,7 @@ export const dispatchAddToMeld = (
     );
     return;
   }
+  publishMeld(client, msg.id, currPlayer, beforeMeld);
   client.publish(
     `catnasta/game/${msg.id}/${msg.name}`,
     JSON.stringify({

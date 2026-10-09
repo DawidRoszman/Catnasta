@@ -938,3 +938,42 @@ describe("adding to a meld", () => {
     expect(gameState.player1.hand).toHaveLength(1);
   });
 });
+
+describe("move events", () => {
+  test("drawing and discarding tell both tables", async () => {
+    const { broker, gameState, ofType, mongo } = setup({
+      player1: player("ann", { hand: [card(Rank.FOUR), card(Rank.SIX)] }),
+    });
+    drawCardDispatch(broker, gameState, msg("ann"));
+    await discardCardDispatch(broker, gameState, msg("ann", { cardId: gameState.player1.hand[0].id }), mongo, games);
+    expect(ofType("MOVE").map(({ topic, msg }) => [topic, msg.move])).toEqual([
+      ["catnasta/game/T1", "draw"],
+      ["catnasta/game/T1", "discard"],
+    ]);
+  });
+
+  test("a meld says whether it finished a catnasta", () => {
+    const kings = cards(6, Rank.KING);
+    const seventh = card(Rank.KING);
+    const { broker, gameState, ofType } = setup({
+      hasDrawn: true,
+      player1: player("ann", { hand: [...kings, seventh, card(Rank.FOUR), card(Rank.SIX)] }),
+    });
+    meldCardDispatch(broker, gameState, msg("ann", { melds: [kings.map(({ id }) => id)] }));
+    dispatchAddToMeld(broker, gameState, msg("ann", { meldId: 0, cardsIds: [seventh.id] }));
+    expect(ofType("MOVE").map(({ msg }) => [msg.move, msg.has_made_catnasta])).toEqual([
+      ["meld", false],
+      ["meld", true],
+    ]);
+  });
+
+  test("a rejected meld plays nothing", () => {
+    const kings = cards(3, Rank.KING);
+    const { broker, gameState, ofType } = setup({
+      hasDrawn: true,
+      player1: player("ann", { total: 1500, hand: [...kings, card(Rank.FOUR)] }),
+    });
+    meldCardDispatch(broker, gameState, msg("ann", { melds: [kings.map(({ id }) => id)] }));
+    expect(ofType("MOVE")).toHaveLength(0);
+  });
+});

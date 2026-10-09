@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 import { useUserContext } from "@/app/components/UserContext";
 import { useToast } from "@/app/components/ui/Feedback";
 import { joinGame } from "@/app/lib/joinGame";
+import { playSound } from "./sounds";
 
 export const GameContext = createContext<Game | null>(null);
 export const GameDispatchContext = createContext<Dispatch<Action> | null>(null);
@@ -189,12 +190,23 @@ export function GameContextProvider({
             dispatch({ type: Type.PLAYER_DRAW_CARD, payload: { name: username } });
           }
           break;
+        case "MOVE":
+          if (msg.move === "draw") {
+            playSound("takeCard");
+          } else if (msg.move === "meld" && msg.has_made_catnasta) {
+            playSound("meow");
+          } else {
+            playSound("placeCard");
+          }
+          break;
         case "PILE_TAKEN":
+          playSound("litterbox");
           if (msg.player === username) {
             dispatch({ type: Type.MODIFY, payload: { tookPile: true } });
           }
           break;
         case "PILE_FORCED":
+          playSound("litterbox");
           toast(
             msg.player === username
               ? "Your catnasta took the litterbox pile. Discard a card to end your turn."
