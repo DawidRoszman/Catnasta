@@ -21,6 +21,7 @@ import { Modal } from "@/app/components/ui/Modal";
 import { Panel } from "@/app/components/ui/Panel";
 import { useToast } from "@/app/components/ui/Feedback";
 import Spinner from "@/app/components/ui/Spinner";
+import MusicControl from "./MusicControl";
 import { cn } from "@/app/lib/cn";
 import type { Game, RoundResult } from "./gameReducer";
 import { FIRST_MELD_MINIMUMS, minimumFirstMeld } from "@/app/lib/cards/draw";
@@ -82,7 +83,9 @@ export default function GameHud(props: GameHudProps) {
           />
         </div>
 
-        <div className="pointer-events-auto">
+        {/* Raised above the waiting room overlay so music and rules stay reachable there. */}
+        <div className="pointer-events-auto relative z-10 flex items-center gap-2">
+          <MusicControl />
           <Button id="rules-button" variant="secondary" size="icon" onClick={() => setRulesOpen(true)} aria-label="How to play">
             <CircleHelp className="h-5 w-5" />
           </Button>
