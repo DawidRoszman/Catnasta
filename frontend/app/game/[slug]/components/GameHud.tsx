@@ -57,7 +57,12 @@ export default function GameHud(props: GameHudProps) {
           <Button id="leave-button" variant="secondary" size="icon" onClick={props.onLeave} aria-label="Leave table">
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <GameCode code={game.gameId} />
+          {/* The code only matters while a seat is free; a full table shows what it takes to win. */}
+          {player2.name ? (
+            <WinningScore winningScore={game.gameState.winningScore} />
+          ) : (
+            <GameCode code={game.gameId} />
+          )}
         </div>
 
         <div className="pointer-events-auto hidden items-stretch gap-2 md:flex" id="scoreboard">
@@ -107,6 +112,21 @@ export default function GameHud(props: GameHudProps) {
       <TableClosedModal open={phase === "closed"} host={player2.name} />
       <RulesModal open={rulesOpen} onClose={() => setRulesOpen(false)} />
     </>
+  );
+}
+
+function WinningScore({ winningScore }: { winningScore: number }) {
+  return (
+    <div
+      className="flex h-10 items-center gap-2 rounded-xl bg-surface/85 px-3 ring-1 ring-line backdrop-blur-md"
+      id="winning-score"
+    >
+      <Trophy className="h-4 w-4 text-brass" aria-hidden />
+      <span className="text-sm font-semibold">
+        First to <span className="tabular-nums text-brass">{winningScore.toLocaleString()}</span>
+        <span className="hidden sm:inline"> points wins</span>
+      </span>
+    </div>
   );
 }
 
