@@ -59,20 +59,34 @@ function Cards({ layout, stockCount, onCardClick }: Pick<SceneProps, "layout" | 
     () => new THREE.Vector3(STOCK_POSITION.x, pileHeight(stockCount) + 0.05, STOCK_POSITION.z),
     [stockCount],
   );
+  // The hand card under the pointer lights up melded cards of its rank. Looked up
+  // by id so the highlight goes away once that card leaves the hand.
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const hoveredRank = layout.hand.find((card) => card.id === hoveredId)?.rank;
   return (
     <>
-      {placements.map((placement) => (
-        <Card3D
-          key={placement.key}
-          card={placement.card}
-          position={placement.position}
-          quaternion={placement.quaternion}
-          spawn={spawn}
-          glow={placement.glow}
-          hoverLift={placement.hoverLift}
-          onClick={placement.target ? () => onCardClick(placement.target!) : undefined}
-        />
-      ))}
+      {placements.map((placement) => {
+        const isHand = placement.target?.type === "hand";
+        const matches = placement.melded && hoveredRank !== undefined && placement.card?.rank === hoveredRank;
+        return (
+          <Card3D
+            key={placement.key}
+            card={placement.card}
+            position={placement.position}
+            quaternion={placement.quaternion}
+            spawn={spawn}
+            glow={matches ? "match" : placement.glow}
+            hoverLift={placement.hoverLift}
+            onClick={placement.target ? () => onCardClick(placement.target!) : undefined}
+            onHoverChange={
+              isHand
+                ? (hovered) =>
+                    setHoveredId((current) => (hovered ? placement.key : current === placement.key ? null : current))
+                : undefined
+            }
+          />
+        );
+      })}
     </>
   );
 }

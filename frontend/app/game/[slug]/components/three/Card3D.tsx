@@ -14,6 +14,7 @@ const GLOW_COLORS: Record<Glow, string | "gold"> = {
   staged: "#7cc4e8",
   catnasta: "gold",
   target: "#6fd3b0",
+  match: "#ff9ad5",
 };
 
 type Card3DProps = {
@@ -25,9 +26,10 @@ type Card3DProps = {
   glow?: Glow;
   hoverLift?: boolean;
   onClick?: () => void;
+  onHoverChange?: (hovered: boolean) => void;
 };
 
-function Card3D({ card, position, quaternion, spawn, glow, hoverLift, onClick }: Card3DProps) {
+function Card3D({ card, position, quaternion, spawn, glow, hoverLift, onClick, onHoverChange }: Card3DProps) {
   const group = useRef<THREE.Group>(null);
   const inner = useRef<THREE.Group>(null);
   const glowMaterial = useRef<THREE.MeshBasicMaterial>(null);
@@ -75,6 +77,7 @@ function Card3D({ card, position, quaternion, spawn, glow, hoverLift, onClick }:
     }
     e.stopPropagation();
     setHovered(true);
+    onHoverChange?.(true);
     document.body.style.cursor = "pointer";
   };
   const handlePointerOut = () => {
@@ -82,6 +85,7 @@ function Card3D({ card, position, quaternion, spawn, glow, hoverLift, onClick }:
       return;
     }
     setHovered(false);
+    onHoverChange?.(false);
     document.body.style.cursor = "";
   };
   const handleClick = (e: ThreeEvent<MouseEvent>) => {

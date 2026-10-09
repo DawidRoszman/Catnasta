@@ -46,7 +46,7 @@ export type ClickTarget =
   | { type: "staged"; index: number }
   | { type: "discard" };
 
-export type Glow = "selected" | "staged" | "catnasta" | "target";
+export type Glow = "selected" | "staged" | "catnasta" | "target" | "match";
 
 export type CardPlacement = {
   key: string;
@@ -58,6 +58,8 @@ export type CardPlacement = {
   glow?: Glow;
   /** Hand cards lift towards the camera on hover. */
   hoverLift?: boolean;
+  /** Melded cards light up while a hand card of the same rank is hovered. */
+  melded?: boolean;
 };
 
 export type LayoutInput = {
@@ -242,10 +244,13 @@ export function computeLayout(input: LayoutInput): CardPlacement[] {
 
   // Melds, with staged (not yet sent) melds continuing the player's row.
   layMeldRow(placements, input.myMelds, input.staged, MY_MELD_TOP, MY_CATNASTA_DEPTH, (index, meld) => ({
+    melded: true,
     target: { type: "meld", index },
     glow: meld.length >= CATNASTA_SIZE ? "catnasta" : input.meldsAreTargets ? "target" : undefined,
   }));
-  layMeldRow(placements, input.opponentMelds, [], OPPONENT_MELD_TOP, OPPONENT_CATNASTA_DEPTH, () => ({}));
+  layMeldRow(placements, input.opponentMelds, [], OPPONENT_MELD_TOP, OPPONENT_CATNASTA_DEPTH, () => ({
+    melded: true,
+  }));
 
   // Red threes sit in their own column at the left of each meld row.
   input.myRedThrees.forEach((card, k) => {
