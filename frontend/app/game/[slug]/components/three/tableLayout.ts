@@ -60,6 +60,8 @@ export type CardPlacement = {
   hoverLift?: boolean;
   /** Melded cards light up while a hand card of the same rank is hovered. */
   melded?: boolean;
+  /** The top card of a catnasta shows how many cards the stack holds. */
+  count?: number;
 };
 
 export type LayoutInput = {
@@ -138,6 +140,7 @@ function layCatnasta(
       // Cards underneath sit a touch askew, so the stack shows its edges.
       quaternion: flatQuaternion(true, SIDEWAYS + (card === shown ? 0 : jitter(card.id, 0.07))),
       glow: "catnasta",
+      count: card === shown ? cards.length : undefined,
       ...extra,
     });
   });

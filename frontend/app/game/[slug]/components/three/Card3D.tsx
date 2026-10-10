@@ -4,9 +4,11 @@ import * as THREE from "three";
 import { ThreeEvent, useFrame, useThree } from "@react-three/fiber";
 import { easing } from "maath";
 import { PlayingCard } from "@/app/lib/cards/draw";
-import { getCardGeometry, getCardTexture, getGoldTexture, getOutlineGeometry } from "./textures";
-import { Glow } from "./tableLayout";
+import { getCardGeometry, getCardTexture, getCountTexture, getGoldTexture, getOutlineGeometry } from "./textures";
+import { CARD_HEIGHT, CARD_WIDTH, Glow } from "./tableLayout";
 import { frameStep, usePulseFrames } from "./frames";
+
+const BADGE_RADIUS = 0.12;
 
 /** Outline colours; gold ones use the gilt texture instead of a flat colour. */
 const GLOW_COLORS: Record<Glow, string | "gold"> = {
@@ -25,11 +27,13 @@ type Card3DProps = {
   spawn: THREE.Vector3;
   glow?: Glow;
   hoverLift?: boolean;
+  /** Shows a badge with this number, for the top card of a catnasta. */
+  count?: number;
   onClick?: () => void;
   onHoverChange?: (hovered: boolean) => void;
 };
 
-function Card3D({ card, position, quaternion, spawn, glow, hoverLift, onClick, onHoverChange }: Card3DProps) {
+function Card3D({ card, position, quaternion, spawn, glow, hoverLift, count, onClick, onHoverChange }: Card3DProps) {
   const group = useRef<THREE.Group>(null);
   const inner = useRef<THREE.Group>(null);
   const glowMaterial = useRef<THREE.MeshBasicMaterial>(null);
@@ -132,6 +136,17 @@ function Card3D({ card, position, quaternion, spawn, glow, hoverLift, onClick, o
         >
           <meshStandardMaterial map={back} roughness={0.55} metalness={0} />
         </mesh>
+        {count !== undefined && (
+          // Catnastas lie sideways, so this corner is the stack's far right one, which later
+          // stacks never cover, and the number is turned to read upright from the player's seat.
+          <mesh
+            position={[CARD_WIDTH / 2 - 0.07, -CARD_HEIGHT / 2 + 0.07, 0.004]}
+            rotation={[0, 0, -Math.PI / 2]}
+          >
+            <circleGeometry args={[BADGE_RADIUS, 32]} />
+            <meshBasicMaterial map={getCountTexture(count)} transparent toneMapped={false} />
+          </mesh>
+        )}
       </group>
     </group>
   );

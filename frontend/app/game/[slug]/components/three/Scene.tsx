@@ -77,6 +77,7 @@ function Cards({ layout, stockCount, onCardClick }: Pick<SceneProps, "layout" | 
             spawn={spawn}
             glow={matches ? "match" : placement.glow}
             hoverLift={placement.hoverLift}
+            count={placement.count}
             onClick={placement.target ? () => onCardClick(placement.target!) : undefined}
             onHoverChange={
               isHand

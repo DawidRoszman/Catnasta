@@ -111,3 +111,39 @@ export function getGoldTexture() {
   }
   return goldTexture;
 }
+
+const countTextures = new Map<number, THREE.CanvasTexture>();
+
+/** A gilt disc with a number on it, for the card count badge on a catnasta. */
+export function getCountTexture(count: number) {
+  let texture = countTextures.get(count);
+  if (texture === undefined) {
+    const size = 128;
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext("2d")!;
+    const gradient = ctx.createLinearGradient(0, 0, size, size);
+    gradient.addColorStop(0, "#f6e3a6");
+    gradient.addColorStop(0.5, "#d9ad4c");
+    gradient.addColorStop(1, "#9c6e24");
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#5a3a12";
+    ctx.lineWidth = size * 0.06;
+    ctx.beginPath();
+    ctx.arc(size / 2, size / 2, size / 2 - ctx.lineWidth, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = "#3b240a";
+    ctx.font = `700 ${size * (count >= 10 ? 0.5 : 0.6)}px Georgia, serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(String(count), size / 2, size / 2 + size * 0.04);
+    texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    countTextures.set(count, texture);
+  }
+  return texture;
+}
