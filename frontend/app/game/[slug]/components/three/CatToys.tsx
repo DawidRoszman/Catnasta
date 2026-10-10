@@ -1,16 +1,66 @@
 "use client";
-import React, { useEffect, useMemo } from "react";
+import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
+import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { cardboardTexture, plushTexture, seeded, sisalTexture, yarnTexture } from "./fabric";
 import { FLOOR_Y } from "./tableLayout";
-import { playSound } from "../sounds";
+import { frameStep } from "./frames";
+import { playSound, type SoundName } from "../sounds";
 
 /*
  * Decorations only: every toy sits where no card is ever laid out, in the back
- * corners of the cushion or on the floor behind the bed. None of them move
- * (the mouse only squeaks when clicked),
+ * corners of the cushion or on the floor behind the bed. None of them move on
+ * their own (the ball and the mouse only play a short animation when clicked),
  * so they cost nothing between frames.
  */
+
+/**
+ * A short animation that plays each time `start` is called. `pose` sets the object
+ * up for `t` seconds in, and must leave it at rest when `t` reaches `duration`.
+ */
+function useClickAnimation<T extends THREE.Object3D>(duration: number, pose: (object: T, t: number) => void) {
+  const ref = useRef<T>(null);
+  const elapsed = useRef<number | null>(null);
+  const invalidate = useThree((state) => state.invalidate);
+  useFrame((state, delta) => {
+    if (elapsed.current === null || !ref.current) {
+      return;
+    }
+    elapsed.current = Math.min(elapsed.current + frameStep(delta), duration);
+    pose(ref.current, elapsed.current);
+    if (elapsed.current < duration) {
+      state.invalidate();
+    } else {
+      elapsed.current = null;
+    }
+  });
+  const start = useCallback(() => {
+    elapsed.current = 0;
+    invalidate();
+  }, [invalidate]);
+  return [ref, start] as const;
+}
+
+/** Rises from 0 to 1 and back over `width` seconds either side of `at`. */
+const bump = (t: number, at: number, width: number) => Math.max(0, 1 - Math.abs(t - at) / width);
+
+/** Pointer handlers for a toy that plays a sound and an animation when clicked. */
+function soundOnClick(sound: SoundName, animate: () => void) {
+  return {
+    onPointerOver: (e: ThreeEvent<PointerEvent>) => {
+      e.stopPropagation();
+      document.body.style.cursor = "pointer";
+    },
+    onPointerOut: () => {
+      document.body.style.cursor = "";
+    },
+    onClick: (e: ThreeEvent<MouseEvent>) => {
+      e.stopPropagation();
+      playSound(sound);
+      animate();
+    },
+  };
+}
 
 /** A tube along a smooth curve through the given points, e.g. a strand of yarn or a tail. */
 function useTube(points: [number, number, number][], radius: number, segments = 48) {
@@ -31,7 +81,7 @@ function useTube(points: [number, number, number][], radius: number, segments = 
   return geometry;
 }
 
-/** A ball of yarn with a loose strand wandering off along the cushion. */
+/** A ball of yarn with a loose strand wandering off along the cushion. It bounces when clicked. */
 function YarnBall() {
   const radius = 0.32;
   const strand = useTube(
@@ -44,12 +94,26 @@ function YarnBall() {
     ],
     0.022,
   );
+  // A high hop and a small one, squashing a little each time it lands.
+  const [ball, bounce] = useClickAnimation<THREE.Group>(0.72, (object, t) => {
+    const hop = (from: number, to: number, height: number) => {
+      const u = (t - from) / (to - from);
+      return u > 0 && u < 1 ? 4 * height * u * (1 - u) : 0;
+    };
+    const squash = 0.1 * bump(t, 0, 0.05) + 0.22 * bump(t, 0.42, 0.07) + 0.1 * bump(t, 0.62, 0.06);
+    object.scale.set(1 + squash / 2, 1 - squash, 1 + squash / 2);
+    // Squashing about its centre would lift the ball off the cushion, so it sinks to match.
+    object.position.y = hop(0, 0.42, 0.45) + hop(0.42, 0.62, 0.1) - radius * squash;
+  });
   return (
-    <group position={[-4.95, radius, -3.0]}>
-      <mesh castShadow receiveShadow rotation={[0.4, 0.3, 0.2]}>
-        <sphereGeometry args={[radius, 32, 24]} />
-        <meshStandardMaterial map={yarnTexture()} roughness={0.9} />
-      </mesh>
+    <group position={[-4.95, radius, -3.0]} {...soundOnClick("ball", bounce)}>
+      {/* The squash runs along this group's upright axis, not the ball's tilted one. */}
+      <group ref={ball}>
+        <mesh castShadow receiveShadow rotation={[0.4, 0.3, 0.2]}>
+          <sphereGeometry args={[radius, 32, 24]} />
+          <meshStandardMaterial map={yarnTexture()} roughness={0.9} />
+        </mesh>
+      </group>
       <mesh geometry={strand} castShadow>
         <meshStandardMaterial color="#b8473f" roughness={0.9} />
       </mesh>
@@ -70,22 +134,16 @@ function ToyMouse() {
     24,
   );
   const plush = plushTexture();
+  // Squeezed flat, then springing back with a wobble that dies away. It stands on
+  // the cushion at y = 0, so scaling the whole mouse keeps its feet in place.
+  const [mouse, squeeze] = useClickAnimation<THREE.Group>(0.6, (object, t) => {
+    const press = 0.08;
+    const squash =
+      t < press ? 0.35 * (t / press) : t < 0.6 ? 0.35 * Math.exp(-(t - press) * 9) * Math.cos((t - press) * 28) : 0;
+    object.scale.set(1 + squash / 2, 1 - squash, 1 + squash / 2);
+  });
   return (
-    <group
-      position={[5.05, 0, -3.1]}
-      rotation={[0, -2.3, 0]}
-      onPointerOver={(e) => {
-        e.stopPropagation();
-        document.body.style.cursor = "pointer";
-      }}
-      onPointerOut={() => {
-        document.body.style.cursor = "";
-      }}
-      onClick={(e) => {
-        e.stopPropagation();
-        playSound("squeak");
-      }}
-    >
+    <group ref={mouse} position={[5.05, 0, -3.1]} rotation={[0, -2.3, 0]} {...soundOnClick("squeak", squeeze)}>
       <mesh position={[0, 0.12, 0]} scale={[0.3, 0.15, 0.17]} castShadow receiveShadow>
         <sphereGeometry args={[1, 24, 16]} />
         <meshPhysicalMaterial color="#9a9aa4" map={plush} roughness={0.95} sheen={1} sheenColor="#e6e6f0" sheenRoughness={0.6} />

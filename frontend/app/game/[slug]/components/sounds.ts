@@ -7,6 +7,7 @@ const SOUND_FILES = {
   litterbox: ["/sounds/litterbox.mp3"],
   meow: ["/sounds/meow-1.mp3", "/sounds/meow-2.mp3"],
   squeak: ["/sounds/squeak.mp3"],
+  ball: ["/sounds/ball.mp3"],
 };
 
 export type SoundName = keyof typeof SOUND_FILES;
