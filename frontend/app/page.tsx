@@ -19,18 +19,18 @@ const SCORING: { label: string; points: string; cards: Card[] }[] = [
     ],
   },
   {
-    label: "Eight to King",
+    label: "Nine to King",
     points: "10",
     cards: [
       { id: "s-k", rank: Rank.KING, suit: Suit.DIAMOND },
-      { id: "s-8", rank: Rank.EIGHT, suit: Suit.CLUB },
+      { id: "s-9", rank: Rank.NINE, suit: Suit.CLUB },
     ],
   },
   {
-    label: "Four to Seven",
+    label: "Four to Eight",
     points: "5",
     cards: [
-      { id: "s-7", rank: Rank.SEVEN, suit: Suit.SPADE },
+      { id: "s-8", rank: Rank.EIGHT, suit: Suit.SPADE },
       { id: "s-4", rank: Rank.FOUR, suit: Suit.HEART },
     ],
   },

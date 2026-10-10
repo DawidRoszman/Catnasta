@@ -44,8 +44,8 @@ export const getCardPoints = (card: Card | Joker): number => {
     case "J":
     case "10":
     case "9":
-    case "8":
       return 10;
+    case "8":
     case "7":
     case "6":
     case "5":

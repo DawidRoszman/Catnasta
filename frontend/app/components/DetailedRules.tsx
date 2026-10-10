@@ -8,8 +8,8 @@ import { FIRST_MELD_MINIMUMS } from "../lib/cards/draw";
 const CARD_VALUES: [string, string][] = [
   ["Joker", "50"],
   ["Ace, Two", "20"],
-  ["King down to Eight", "10"],
-  ["Seven down to Four, black Three", "5"],
+  ["King down to Nine", "10"],
+  ["Eight down to Four, black Three", "5"],
 ];
 
 const BONUSES: [string, string][] = [

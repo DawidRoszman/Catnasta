@@ -16,7 +16,7 @@ At the beginning of the round each player recieves 15 cards (the host can pick a
 
 ### Natural Cards
 
-These are Aces, Kings, Queens, Jacks, and the pip cards from Ten down to Four. They are only used in melds and are grouped into lower-value cards (Four to Seven) and higher-value cards (Eight to King and Ace).
+These are Aces, Kings, Queens, Jacks, and the pip cards from Ten down to Four. They are only used in melds and are grouped into lower-value cards (Four to Eight) and higher-value cards (Nine to King and Ace).
 
 ### Bonus Cards
 
@@ -38,8 +38,8 @@ In Canasta, the four regular Jokers and all Twos are wild cards. They help with 
 - Twos and Aces - 20 points
 - Red Threes - 100 points
 - Black Threes - 5 points
-- Eight, Nine, Ten, Jack, Queen, King - 10 points
-- Four, Five, Six, Seven - 5 points
+- Nine, Ten, Jack, Queen, King - 10 points
+- Four, Five, Six, Seven, Eight - 5 points
 
 ### Melds
 

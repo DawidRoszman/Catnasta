@@ -820,7 +820,7 @@ describe("minus points for cards left in hand", () => {
     ["an Ace", [card(Rank.ACE)], -20],
     ["a Two", [card(Rank.TWO)], -20],
     ["a King", [card(Rank.KING)], -10],
-    ["an Eight", [card(Rank.EIGHT)], -10],
+    ["an Eight", [card(Rank.EIGHT)], -5],
     ["a Seven", [card(Rank.SEVEN)], -5],
     ["a Four", [card(Rank.FOUR)], -5],
     ["a black Three", [card(Rank.THREE, Suit.CLUB)], -5],
