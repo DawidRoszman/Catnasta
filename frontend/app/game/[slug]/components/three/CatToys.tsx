@@ -178,15 +178,27 @@ const POST_RADIUS = 0.24;
 /** Half the width of the square plush top, and the height of its underside. */
 const POST_TOP_HALF = 0.475;
 const POST_TOP_UNDERSIDE = POST_BASE + POST_HEIGHT;
+/** Half the width of the square plush base. */
+const POST_BASE_HALF = 0.625;
 
 const POM_RADIUS = 0.1;
-const STRING_LENGTH = 0.6;
 /** Where the string is tied, under the post's top. */
 const POM_ANCHOR = new THREE.Vector3(0.4, POST_HEIGHT + 0.02, 0);
-const POM_REST = POM_ANCHOR.clone().setY(POM_ANCHOR.y - STRING_LENGTH);
 /** In table units per second squared; a little floaty, so a swing is easy to follow. */
 const GRAVITY = 20;
 const AIR_DRAG = 1.4;
+/**
+ * The string is elastic: slack up to this length, then pulling back the harder the
+ * further it is stretched, so the pom-pom bobs as well as swings.
+ */
+const STRING_LENGTH = 0.5;
+const STRING_STIFFNESS = 200;
+/** Damps the bobbing along the string, so it doesn't bounce for ages. */
+const STRING_DAMPING = 3;
+/** However hard it is pulled, the string stretches no further than this. */
+const STRING_MAX_LENGTH = 1.15;
+/** Hanging still, its weight stretches the string by GRAVITY / STRING_STIFFNESS. */
+const POM_REST = POM_ANCHOR.clone().setY(POM_ANCHOR.y - STRING_LENGTH - GRAVITY / STRING_STIFFNESS);
 /** Fastest the pom-pom can be thrown, so a quick flick doesn't send it spinning over the top. */
 const MAX_THROW = 8;
 /** A click without a drag gives it this push. */
@@ -195,12 +207,12 @@ const UP = new THREE.Vector3(0, 1, 0);
 
 const scratch = new THREE.Vector3();
 
-/** Keeps the pom-pom on its string and out of the post and its top. */
+/** Keeps the pom-pom within its string's reach and out of the post, its top, its base and the floor. */
 function keepClear(position: THREE.Vector3) {
   for (let pass = 0; pass < 2; pass++) {
     scratch.subVectors(position, POM_ANCHOR);
-    if (scratch.length() > STRING_LENGTH) {
-      position.copy(POM_ANCHOR).addScaledVector(scratch.normalize(), STRING_LENGTH);
+    if (scratch.length() > STRING_MAX_LENGTH) {
+      position.copy(POM_ANCHOR).addScaledVector(scratch.normalize(), STRING_MAX_LENGTH);
     }
     const fromPost = Math.hypot(position.x, position.z);
     const clear = POST_RADIUS + POM_RADIUS;
@@ -216,7 +228,23 @@ function keepClear(position: THREE.Vector3) {
     if (Math.abs(position.x) < reach && Math.abs(position.z) < reach) {
       position.y = Math.min(position.y, POST_TOP_UNDERSIDE - POM_RADIUS);
     }
+    const overBase = Math.abs(position.x) < POST_BASE_HALF && Math.abs(position.z) < POST_BASE_HALF;
+    position.y = Math.max(position.y, (overBase ? POST_BASE : 0) + POM_RADIUS);
   }
+}
+
+/** Adds the elastic string's pull to `velocity` over one time `step`. */
+function pullOfString(position: THREE.Vector3, velocity: THREE.Vector3, step: number) {
+  scratch.subVectors(position, POM_ANCHOR);
+  const length = scratch.length();
+  const stretch = length - STRING_LENGTH;
+  if (stretch <= 0) {
+    // Slack: a string only pulls, it never pushes.
+    return;
+  }
+  const along = scratch.divideScalar(length);
+  const tension = STRING_STIFFNESS * stretch + STRING_DAMPING * velocity.dot(along);
+  velocity.addScaledVector(along, -Math.max(tension, 0) * step);
 }
 
 /** Puts the pom-pom at `position`, with its string running straight up to the anchor. */
@@ -225,7 +253,9 @@ function placePomPom(pom: THREE.Object3D, string: THREE.Object3D, position: THRE
   scratch.subVectors(position, POM_ANCHOR);
   const length = scratch.length();
   string.position.copy(POM_ANCHOR).addScaledVector(scratch, 0.5);
-  string.scale.set(1, Math.max(length, 1e-3), 1);
+  // Thins out a little as it stretches.
+  const thickness = Math.sqrt(STRING_LENGTH / Math.max(length, STRING_LENGTH));
+  string.scale.set(thickness, Math.max(length, 1e-3), thickness);
   string.quaternion.setFromUnitVectors(UP, length > 1e-6 ? scratch.normalize() : UP);
 }
 
@@ -238,8 +268,8 @@ type PomPomState = {
 };
 
 /**
- * A pom-pom on a string under the post's top. Drag it about and let go, or click it
- * for a push: it swings on its string, knocking against the post, until it hangs still.
+ * A pom-pom on an elastic string under the post's top. Drag it about and let go, or click
+ * it for a push: it bobs and swings on its string, knocking against the post, until it hangs still.
  * Positions are in the post's own frame.
  */
 function PomPom() {
@@ -282,6 +312,7 @@ function PomPom() {
         position.lerp(sim.drag.target, 1 - Math.exp(-40 * step));
       } else {
         velocity.y -= GRAVITY * step;
+        pullOfString(position, velocity, step);
         velocity.multiplyScalar(Math.exp(-AIR_DRAG * step));
         position.addScaledVector(velocity, step);
       }
@@ -336,7 +367,10 @@ function PomPom() {
     }
     e.stopPropagation();
     (e.target as Element).releasePointerCapture(e.pointerId);
-    if (!sim.drag.moved) {
+    if (sim.drag.moved) {
+      // Let go of after a pull, it springs back with a thud.
+      playSound("thud");
+    } else {
       sim.velocity.add(NUDGE);
     }
     sim.drag = null;
