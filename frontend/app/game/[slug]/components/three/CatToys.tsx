@@ -1,17 +1,19 @@
 "use client";
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
-import { cardboardTexture, plushTexture, seeded, sisalTexture, yarnTexture } from "./fabric";
+import { cardboardTexture, plushTexture, seeded, yarnTexture } from "./fabric";
 import { FLOOR_Y } from "./tableLayout";
 import { frameStep } from "./frames";
 import { playSound, type SoundName } from "../sounds";
+import BasketGame from "./BasketGame";
 
 /*
- * Decorations only: every toy sits where no card is ever laid out, in the back
- * corners of the cushion or on the floor behind the bed. None of them move on
+ * Decorations, mostly: every toy sits where no card is ever laid out, in the back
+ * corners of the cushion or on the floor beside the bed. None of them move on
  * their own (the ball and the mouse play a short animation when clicked, and the
- * pom-pom swings only after it is pushed or dragged), so they cost nothing between frames.
+ * scratching post's basket game only runs while it is being played), so they cost
+ * nothing between frames.
  */
 
 /**
@@ -171,266 +173,6 @@ function ToyMouse() {
   );
 }
 
-const POST_HEIGHT = 1.4;
-/** The plush base the post stands on is this thick. */
-const POST_BASE = 0.14;
-const POST_RADIUS = 0.24;
-/** Half the width of the square plush top, and the height of its underside. */
-const POST_TOP_HALF = 0.475;
-const POST_TOP_UNDERSIDE = POST_BASE + POST_HEIGHT;
-/** Half the width of the square plush base. */
-const POST_BASE_HALF = 0.625;
-
-const POM_RADIUS = 0.1;
-/** Where the string is tied, under the post's top. */
-const POM_ANCHOR = new THREE.Vector3(0.4, POST_HEIGHT + 0.02, 0);
-/** In table units per second squared; a little floaty, so a swing is easy to follow. */
-const GRAVITY = 20;
-const AIR_DRAG = 1.4;
-/**
- * The string is elastic: slack up to this length, then pulling back the harder the
- * further it is stretched, so the pom-pom bobs as well as swings.
- */
-const STRING_LENGTH = 0.5;
-const STRING_STIFFNESS = 200;
-/** Damps the bobbing along the string, so it doesn't bounce for ages. */
-const STRING_DAMPING = 3;
-/** However hard it is pulled, the string stretches no further than this. */
-const STRING_MAX_LENGTH = 1.15;
-/** Hanging still, its weight stretches the string by GRAVITY / STRING_STIFFNESS. */
-const POM_REST = POM_ANCHOR.clone().setY(POM_ANCHOR.y - STRING_LENGTH - GRAVITY / STRING_STIFFNESS);
-/** Fastest the pom-pom can be thrown, so a quick flick doesn't send it spinning over the top. */
-const MAX_THROW = 8;
-/** A click without a drag gives it this push. */
-const NUDGE = new THREE.Vector3(0, 0, 2.5);
-const UP = new THREE.Vector3(0, 1, 0);
-
-const scratch = new THREE.Vector3();
-
-/** Keeps the pom-pom within its string's reach and out of the post, its top, its base and the floor. */
-function keepClear(position: THREE.Vector3) {
-  for (let pass = 0; pass < 2; pass++) {
-    scratch.subVectors(position, POM_ANCHOR);
-    if (scratch.length() > STRING_MAX_LENGTH) {
-      position.copy(POM_ANCHOR).addScaledVector(scratch.normalize(), STRING_MAX_LENGTH);
-    }
-    const fromPost = Math.hypot(position.x, position.z);
-    const clear = POST_RADIUS + POM_RADIUS;
-    if (fromPost < clear) {
-      if (fromPost < 1e-6) {
-        position.x = clear;
-      } else {
-        position.x *= clear / fromPost;
-        position.z *= clear / fromPost;
-      }
-    }
-    const reach = POST_TOP_HALF + POM_RADIUS;
-    if (Math.abs(position.x) < reach && Math.abs(position.z) < reach) {
-      position.y = Math.min(position.y, POST_TOP_UNDERSIDE - POM_RADIUS);
-    }
-    const overBase = Math.abs(position.x) < POST_BASE_HALF && Math.abs(position.z) < POST_BASE_HALF;
-    position.y = Math.max(position.y, (overBase ? POST_BASE : 0) + POM_RADIUS);
-  }
-}
-
-/** Adds the elastic string's pull to `velocity` over one time `step`. */
-function pullOfString(position: THREE.Vector3, velocity: THREE.Vector3, step: number) {
-  scratch.subVectors(position, POM_ANCHOR);
-  const length = scratch.length();
-  const stretch = length - STRING_LENGTH;
-  if (stretch <= 0) {
-    // Slack: a string only pulls, it never pushes.
-    return;
-  }
-  const along = scratch.divideScalar(length);
-  const tension = STRING_STIFFNESS * stretch + STRING_DAMPING * velocity.dot(along);
-  velocity.addScaledVector(along, -Math.max(tension, 0) * step);
-}
-
-/** Puts the pom-pom at `position`, with its string running straight up to the anchor. */
-function placePomPom(pom: THREE.Object3D, string: THREE.Object3D, position: THREE.Vector3) {
-  pom.position.copy(position);
-  scratch.subVectors(position, POM_ANCHOR);
-  const length = scratch.length();
-  string.position.copy(POM_ANCHOR).addScaledVector(scratch, 0.5);
-  // Thins out a little as it stretches.
-  const thickness = Math.sqrt(STRING_LENGTH / Math.max(length, STRING_LENGTH));
-  string.scale.set(thickness, Math.max(length, 1e-3), thickness);
-  string.quaternion.setFromUnitVectors(UP, length > 1e-6 ? scratch.normalize() : UP);
-}
-
-type PomPomState = {
-  position: THREE.Vector3;
-  velocity: THREE.Vector3;
-  /** Simulating; it falls asleep again once it hangs still. */
-  awake: boolean;
-  drag: { plane: THREE.Plane; target: THREE.Vector3; moved: boolean } | null;
-};
-
-/**
- * A pom-pom on an elastic string under the post's top. Drag it about and let go, or click
- * it for a push: it bobs and swings on its string, knocking against the post, until it hangs still.
- * Positions are in the post's own frame.
- */
-function PomPom() {
-  const frame = useRef<THREE.Group>(null);
-  const pom = useRef<THREE.Mesh>(null);
-  const string = useRef<THREE.Mesh>(null);
-  const state = useRef<PomPomState>({
-    position: POM_REST.clone(),
-    velocity: new THREE.Vector3(),
-    awake: false,
-    drag: null,
-  });
-  const invalidate = useThree((three) => three.invalidate);
-  const plush = plushTexture();
-
-  // Placed here rather than through props, so a re-render never yanks it back mid-swing.
-  useLayoutEffect(() => {
-    if (pom.current && string.current) {
-      placePomPom(pom.current, string.current, state.current.position);
-    }
-  }, []);
-
-  useFrame((three, delta) => {
-    const sim = state.current;
-    if (!sim.awake || !pom.current || !string.current) {
-      return;
-    }
-    const steps = 4;
-    const step = frameStep(delta) / steps;
-    if (step <= 0) {
-      three.invalidate();
-      return;
-    }
-    const { position, velocity } = sim;
-    const previous = new THREE.Vector3();
-    for (let i = 0; i < steps; i++) {
-      previous.copy(position);
-      if (sim.drag) {
-        // Follows the pointer closely but not rigidly, so a throw keeps its speed.
-        position.lerp(sim.drag.target, 1 - Math.exp(-40 * step));
-      } else {
-        velocity.y -= GRAVITY * step;
-        pullOfString(position, velocity, step);
-        velocity.multiplyScalar(Math.exp(-AIR_DRAG * step));
-        position.addScaledVector(velocity, step);
-      }
-      keepClear(position);
-      // The velocity is whatever the constraints let it move, so bumps take speed off it.
-      velocity.subVectors(position, previous).divideScalar(step);
-    }
-    velocity.clampLength(0, MAX_THROW);
-    if (!sim.drag && velocity.length() < 0.03 && position.distanceTo(POM_REST) < 0.004) {
-      position.copy(POM_REST);
-      velocity.set(0, 0, 0);
-      sim.awake = false;
-    } else {
-      three.invalidate();
-    }
-    placePomPom(pom.current, string.current, position);
-  });
-
-  const onPointerDown = (e: ThreeEvent<PointerEvent>) => {
-    if (!frame.current) {
-      return;
-    }
-    e.stopPropagation();
-    (e.target as Element).setPointerCapture(e.pointerId);
-    const sim = state.current;
-    // Dragged across a plane facing the camera, through where the pom-pom is now.
-    const normal = e.camera.getWorldDirection(new THREE.Vector3()).negate();
-    const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(normal, frame.current.localToWorld(sim.position.clone()));
-    sim.drag = { plane, target: sim.position.clone(), moved: false };
-    sim.awake = true;
-    document.body.style.cursor = "grabbing";
-    invalidate();
-  };
-  const onPointerMove = (e: ThreeEvent<PointerEvent>) => {
-    const drag = state.current.drag;
-    if (!drag || !frame.current) {
-      return;
-    }
-    e.stopPropagation();
-    const hit = new THREE.Vector3();
-    if (e.ray.intersectPlane(drag.plane, hit)) {
-      drag.target.copy(frame.current.worldToLocal(hit));
-      keepClear(drag.target);
-      drag.moved = true;
-      invalidate();
-    }
-  };
-  const onPointerUp = (e: ThreeEvent<PointerEvent>) => {
-    const sim = state.current;
-    if (!sim.drag) {
-      return;
-    }
-    e.stopPropagation();
-    (e.target as Element).releasePointerCapture(e.pointerId);
-    if (sim.drag.moved) {
-      // Let go of after a pull, it springs back with a thud.
-      playSound("thud");
-    } else {
-      sim.velocity.add(NUDGE);
-    }
-    sim.drag = null;
-    document.body.style.cursor = "grab";
-    invalidate();
-  };
-
-  return (
-    <group ref={frame}>
-      <mesh ref={string}>
-        <cylinderGeometry args={[0.008, 0.008, 1, 6]} />
-        <meshStandardMaterial color="#e9dcc3" roughness={0.9} />
-      </mesh>
-      <mesh
-        ref={pom}
-        castShadow
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerOver={(e) => {
-          e.stopPropagation();
-          if (!state.current.drag) {
-            document.body.style.cursor = "grab";
-          }
-        }}
-        onPointerOut={() => {
-          if (!state.current.drag) {
-            document.body.style.cursor = "";
-          }
-        }}
-      >
-        <icosahedronGeometry args={[POM_RADIUS, 2]} />
-        <meshPhysicalMaterial color="#e2685a" map={plush} roughness={1} sheen={1} sheenColor="#ffc6b8" />
-      </mesh>
-    </group>
-  );
-}
-
-/** A sisal scratching post on a plush base, with a pom-pom dangling from its top. */
-function ScratchingPost() {
-  const plush = plushTexture();
-  return (
-    <group position={[7.3, FLOOR_Y, -4.3]} rotation={[0, -0.5, 0]}>
-      <mesh position={[0, POST_BASE / 2, 0]} castShadow receiveShadow>
-        <boxGeometry args={[1.25, POST_BASE, 1.25]} />
-        <meshPhysicalMaterial color="#c79d74" map={plush} roughness={0.95} sheen={1} sheenColor="#fff0d8" />
-      </mesh>
-      <mesh position={[0, POST_BASE + POST_HEIGHT / 2, 0]} castShadow receiveShadow>
-        <cylinderGeometry args={[POST_RADIUS, POST_RADIUS, POST_HEIGHT, 28, 1, true]} />
-        <meshStandardMaterial map={sisalTexture()} roughness={1} />
-      </mesh>
-      <mesh position={[0, POST_TOP_UNDERSIDE + 0.06, 0]} castShadow receiveShadow>
-        <boxGeometry args={[POST_TOP_HALF * 2, 0.12, POST_TOP_HALF * 2]} />
-        <meshPhysicalMaterial color="#c79d74" map={plush} roughness={0.95} sheen={1} sheenColor="#fff0d8" />
-      </mesh>
-      <PomPom />
-    </group>
-  );
-}
-
 /** A low corrugated-cardboard scratcher on the floor, worn by claws. */
 function CardboardScratcher() {
   const top = cardboardTexture();
@@ -474,7 +216,7 @@ export default function CatToys() {
     <group>
       <YarnBall />
       <ToyMouse />
-      <ScratchingPost />
+      <BasketGame />
       <CardboardScratcher />
     </group>
   );

@@ -9,19 +9,23 @@ const SOUND_FILES = {
   squeak: ["/sounds/squeak.mp3"],
   ball: ["/sounds/ball.mp3"],
   thud: ["/sounds/thud.mp3"],
+  confetti: ["/sounds/confetti.mp3"],
 };
 
 export type SoundName = keyof typeof SOUND_FILES;
 
-/** Plays a sound effect at the volume and mute setting chosen in the table's sound control. */
-export function playSound(name: SoundName) {
+/**
+ * Plays a sound effect at the volume and mute setting chosen in the table's sound
+ * control, scaled by `gain` (0 to 1) for quieter knocks and bumps.
+ */
+export function playSound(name: SoundName, gain = 1) {
   const { volume, isMuted } = loadSettings();
   if (isMuted || volume === 0) {
     return;
   }
   const variants = SOUND_FILES[name];
   const audio = new Audio(variants[Math.floor(Math.random() * variants.length)]);
-  audio.volume = volume;
+  audio.volume = volume * Math.min(Math.max(gain, 0), 1);
   audio.play().catch((err: unknown) => {
     // Browsers refuse to play before the page's first click or key press; nothing is lost by skipping it.
     if (!(err instanceof DOMException && err.name === "NotAllowedError")) {

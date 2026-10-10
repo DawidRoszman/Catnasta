@@ -125,6 +125,42 @@ export function cardboardTexture() {
   });
 }
 
+/** Woven wicker: rows of strands passing over and under upright stakes, tiled round a basket. */
+export function wickerTexture() {
+  return cached("wicker", () => {
+    const { element, ctx } = canvas(128, 64);
+    ctx.fillStyle = "#5e3a1c";
+    ctx.fillRect(0, 0, 128, 64);
+    const random = seeded(29);
+    const rows = 8;
+    const stakes = 8;
+    const rowHeight = 64 / rows;
+    const stakeWidth = 128 / stakes;
+    for (let row = 0; row < rows; row++) {
+      for (let stake = 0; stake < stakes; stake++) {
+        // Each strand shows where it passes over a stake, alternating row by row.
+        if ((row + stake) % 2 === 1) {
+          continue;
+        }
+        const x = stake * stakeWidth;
+        const y = row * rowHeight;
+        const shade = 150 + Math.floor(random() * 40);
+        const gradient = ctx.createLinearGradient(0, y, 0, y + rowHeight);
+        gradient.addColorStop(0, `rgb(${shade + 40},${shade}, ${shade - 70})`);
+        gradient.addColorStop(1, `rgb(${shade - 30},${shade - 70},${shade - 120})`);
+        ctx.fillStyle = gradient;
+        // Drawn again a tile over, so strands crossing the edge wrap round without a seam.
+        for (const dx of [-128, 0, 128]) {
+          ctx.beginPath();
+          ctx.roundRect(x - stakeWidth * 0.55 + dx, y + 1, stakeWidth * 2.1, rowHeight - 2, rowHeight / 2);
+          ctx.fill();
+        }
+      }
+    }
+    return toTexture(element, [5, 1]);
+  });
+}
+
 /** A ball of yarn: many wraps crossing each other. */
 export function yarnTexture() {
   return cached("yarn", () => {
