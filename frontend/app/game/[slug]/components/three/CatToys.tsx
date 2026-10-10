@@ -3,10 +3,12 @@ import React, { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { cardboardTexture, plushTexture, seeded, sisalTexture, yarnTexture } from "./fabric";
 import { FLOOR_Y } from "./tableLayout";
+import { playSound } from "../sounds";
 
 /*
  * Decorations only: every toy sits where no card is ever laid out, in the back
- * corners of the cushion or on the floor behind the bed. None of them move,
+ * corners of the cushion or on the floor behind the bed. None of them move
+ * (the mouse only squeaks when clicked),
  * so they cost nothing between frames.
  */
 
@@ -55,7 +57,7 @@ function YarnBall() {
   );
 }
 
-/** A grey felt toy mouse with pink ears and a curly tail, eyeing the litter box. */
+/** A grey felt toy mouse with pink ears and a curly tail, eyeing the litter box. It squeaks when clicked. */
 function ToyMouse() {
   const tail = useTube(
     [
@@ -69,7 +71,21 @@ function ToyMouse() {
   );
   const plush = plushTexture();
   return (
-    <group position={[5.05, 0, -3.1]} rotation={[0, -2.3, 0]}>
+    <group
+      position={[5.05, 0, -3.1]}
+      rotation={[0, -2.3, 0]}
+      onPointerOver={(e) => {
+        e.stopPropagation();
+        document.body.style.cursor = "pointer";
+      }}
+      onPointerOut={() => {
+        document.body.style.cursor = "";
+      }}
+      onClick={(e) => {
+        e.stopPropagation();
+        playSound("squeak");
+      }}
+    >
       <mesh position={[0, 0.12, 0]} scale={[0.3, 0.15, 0.17]} castShadow receiveShadow>
         <sphereGeometry args={[1, 24, 16]} />
         <meshPhysicalMaterial color="#9a9aa4" map={plush} roughness={0.95} sheen={1} sheenColor="#e6e6f0" sheenRoughness={0.6} />
